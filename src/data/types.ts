@@ -89,3 +89,11 @@ export interface FullEntry extends IndexEntry {
   key_concepts?: string[];
   reference_resolutions: ReferenceResolution[];
 }
+
+export interface ProgressEntry {
+  learned_at: string;
+}
+
+export interface ProgressData {
+  learned_entries: Record<string, ProgressEntry>;
+}
