@@ -1318,6 +1318,8 @@
         }
         if (item.learned) {
           html += '<span class="lesson-entry-learned">&#10003;</span>';
+        } else {
+          html += '<span class="lesson-entry-learned-spacer"></span>';
         }
         html += '</div>';
         if (item.note) {
