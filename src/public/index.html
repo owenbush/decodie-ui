@@ -18,6 +18,10 @@
     <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle filters">&#9776;</button>
     <h1><a href="#/" id="homeLink" style="display:flex;align-items:center;gap:0.5rem;color:inherit;text-decoration:none;"><img src="/decodie.png" alt="Decodie" style="height:28px;width:28px;"> Decodie</a></h1>
   </div>
+  <div class="view-switcher" id="viewSwitcher">
+    <button class="view-tab active" data-mode="lessons">Lessons</button>
+    <button class="view-tab" data-mode="entries">Entries</button>
+  </div>
   <div style="display:flex;align-items:center;gap:1rem;">
     <span class="project-name" id="projectName"></span>
     <a href="#/settings" class="settings-link" id="settingsLink">Settings</a>
@@ -132,6 +136,11 @@
     conversationEntryIds: [],
     qaConversationCreatedAt: null,
     learnedEntries: {},
+    currentMode: 'entries',
+    lessons: [],
+    lessonDetail: null,
+    lessonDetailLoading: false,
+    lessonDetailError: null,
   };
 
   // ---- DOM refs ----
@@ -1069,13 +1078,524 @@
     this.style.height = Math.min(this.scrollHeight, 120) + 'px';
   });
 
+  // ---- Lesson views ----
+
+  function updateViewSwitcher(mode) {
+    var viewTabs = document.querySelectorAll('#viewSwitcher .view-tab');
+    viewTabs.forEach(function(t) { t.classList.remove('active'); });
+    viewTabs.forEach(function(t) {
+      if (t.getAttribute('data-mode') === mode) t.classList.add('active');
+    });
+  }
+
+  // View switcher click handlers
+  document.querySelectorAll('#viewSwitcher .view-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var mode = tab.getAttribute('data-mode');
+      document.querySelectorAll('#viewSwitcher .view-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      window.location.hash = mode === 'lessons' ? '#/lessons' : '#/';
+    });
+  });
+
+  async function fetchLessons() {
+    try {
+      var resp = await fetch('/api/lessons');
+      if (!resp.ok) throw new Error('Failed to load lessons');
+      state.lessons = await resp.json();
+    } catch (e) {
+      state.lessons = [];
+    }
+  }
+
+  async function renderLessonList() {
+    state.currentView = 'lessonList';
+    state.currentMode = 'lessons';
+    document.querySelector('.app-layout').classList.add('lessons-mode');
+    updateViewSwitcher('lessons');
+
+    mainEl.innerHTML = '<div class="state-message"><div class="spinner"></div><div>Loading lessons...</div></div>';
+
+    await fetchLessons();
+
+    var lessons = state.lessons;
+    var html = '<div class="entry-list-header"><h2>Lessons</h2><span class="entry-count">' + lessons.length + ' lessons</span></div>';
+
+    html += '<div class="lesson-grid">';
+    for (var i = 0; i < lessons.length; i++) {
+      var lesson = lessons[i];
+      var pct = lesson.total_count > 0 ? Math.round((lesson.learned_count / lesson.total_count) * 100) : 0;
+      var typeBadgeClass = lesson.type === 'custom' ? 'lesson-type-badge-custom' : 'lesson-type-badge-auto';
+
+      html += '<div class="lesson-card" data-lesson-id="' + escapeHtml(lesson.id) + '">';
+      html += '<div class="lesson-card-header">';
+      html += '<span class="lesson-card-title">' + escapeHtml(lesson.title) + '</span>';
+      html += '<span class="lesson-type-badge ' + typeBadgeClass + '">' + escapeHtml(lesson.type) + '</span>';
+      html += '</div>';
+      if (lesson.topic) {
+        html += '<div><span class="tag">' + escapeHtml(lesson.topic) + '</span></div>';
+      }
+      html += '<div class="lesson-card-meta">' + lesson.entry_count + ' entries</div>';
+      html += '<div class="lesson-progress"><div class="lesson-progress-fill" style="width:' + pct + '%"></div></div>';
+      html += '<div class="lesson-progress-text">' + lesson.learned_count + ' / ' + lesson.total_count + ' learned (' + pct + '%)</div>';
+      html += '</div>';
+    }
+
+    // Create lesson card
+    html += '<div class="lesson-card-create" id="createLessonCard">';
+    html += '<div class="lesson-card-create-icon">+</div>';
+    html += '<div class="lesson-card-create-label">Create Lesson</div>';
+    html += '</div>';
+
+    html += '</div>'; // .lesson-grid
+
+    mainEl.innerHTML = html;
+
+    // Attach click handlers
+    mainEl.querySelectorAll('.lesson-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var id = card.getAttribute('data-lesson-id');
+        window.location.hash = '#/lessons/' + encodeURIComponent(id);
+      });
+    });
+
+    var createCard = document.getElementById('createLessonCard');
+    if (createCard) {
+      createCard.addEventListener('click', function() {
+        openLessonModal(null);
+      });
+    }
+  }
+
+  async function renderLessonDetail(lessonId) {
+    state.currentView = 'lessonDetail';
+    state.currentMode = 'lessons';
+    state.lessonDetailLoading = true;
+    state.lessonDetailError = null;
+    state.lessonDetail = null;
+    document.querySelector('.app-layout').classList.add('lessons-mode');
+    updateViewSwitcher('lessons');
+
+    mainEl.innerHTML = '<div class="lesson-detail"><button class="back-btn" id="backToLessons">&larr; Back to lessons</button><div class="state-message"><div class="spinner"></div><div>Loading lesson...</div></div></div>';
+    attachLessonBackBtn();
+
+    try {
+      var resp = await fetch('/api/lessons/' + encodeURIComponent(lessonId));
+      if (!resp.ok) throw new Error('Lesson not found');
+      state.lessonDetail = await resp.json();
+    } catch (e) {
+      state.lessonDetailError = e.message;
+    }
+    state.lessonDetailLoading = false;
+
+    if (state.lessonDetailError) {
+      mainEl.innerHTML = '<div class="lesson-detail"><button class="back-btn" id="backToLessons">&larr; Back to lessons</button><div class="error-banner">' + escapeHtml(state.lessonDetailError) + '</div></div>';
+      attachLessonBackBtn();
+      return;
+    }
+
+    var lesson = state.lessonDetail;
+    if (!lesson) return;
+
+    var pct = lesson.total_count > 0 ? Math.round((lesson.learned_count / lesson.total_count) * 100) : 0;
+    var typeBadgeClass = lesson.type === 'custom' ? 'lesson-type-badge-custom' : 'lesson-type-badge-auto';
+
+    var html = '<div class="lesson-detail">';
+    html += '<button class="back-btn" id="backToLessons">&larr; Back to lessons</button>';
+
+    html += '<div class="lesson-detail-header">';
+    html += '<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">';
+    html += '<h2 class="lesson-detail-title" style="margin-bottom:0">' + escapeHtml(lesson.title) + '</h2>';
+    html += '<span class="lesson-type-badge ' + typeBadgeClass + '">' + escapeHtml(lesson.type) + '</span>';
+    html += '</div>';
+
+    if (lesson.description) {
+      html += '<div class="lesson-detail-desc">' + escapeHtml(lesson.description) + '</div>';
+    }
+
+    html += '<div class="lesson-detail-progress">';
+    html += '<div class="lesson-progress" style="flex:1"><div class="lesson-progress-fill" style="width:' + pct + '%"></div></div>';
+    html += '<span class="lesson-progress-text">' + lesson.learned_count + ' / ' + lesson.total_count + ' (' + pct + '%)</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // Action buttons
+    html += '<div class="lesson-detail-actions">';
+
+    // Start/Continue button
+    var firstUnlearned = null;
+    if (lesson.entries) {
+      for (var i = 0; i < lesson.entries.length; i++) {
+        if (!lesson.entries[i].learned && !lesson.entries[i].missing) {
+          firstUnlearned = lesson.entries[i];
+          break;
+        }
+      }
+    }
+    if (firstUnlearned) {
+      var btnLabel = lesson.learned_count > 0 ? 'Continue' : 'Start';
+      html += '<button class="btn-primary btn-sm" id="lessonStartBtn" data-entry-id="' + escapeHtml(firstUnlearned.entry.id) + '">' + btnLabel + '</button>';
+    }
+
+    if (lesson.type === 'custom') {
+      html += '<button class="btn-outline btn-sm" id="lessonEditBtn">Edit</button>';
+      html += '<button class="btn-danger btn-sm" id="lessonDeleteBtn">Delete</button>';
+    }
+    html += '</div>';
+
+    // Entry list
+    html += '<div class="lesson-entry-list">';
+    if (lesson.entries) {
+      for (var j = 0; j < lesson.entries.length; j++) {
+        var item = lesson.entries[j];
+        var entryData = item.entry || {};
+        var isMissing = !!item.missing;
+        var itemClass = 'lesson-entry-item' + (isMissing ? ' lesson-entry-missing' : '');
+
+        html += '<div>';
+        html += '<div class="' + itemClass + '" data-entry-id="' + escapeHtml(entryData.id || '') + '">';
+        html += '<span class="lesson-entry-order">' + (item.order != null ? item.order : (j + 1)) + '</span>';
+        html += '<span class="lesson-entry-title">' + escapeHtml(entryData.title || entryData.id || 'Unknown entry') + '</span>';
+        if (entryData.experience_level) {
+          html += '<span class="badge badge-' + entryData.experience_level + '">' + entryData.experience_level + '</span>';
+        }
+        if (item.learned) {
+          html += '<span class="lesson-entry-learned">&#10003;</span>';
+        }
+        html += '</div>';
+        if (item.note) {
+          html += '<div class="lesson-entry-note">' + escapeHtml(item.note) + '</div>';
+        }
+        html += '</div>';
+      }
+    }
+    html += '</div>';
+
+    html += '</div>'; // .lesson-detail
+
+    mainEl.innerHTML = html;
+    attachLessonBackBtn();
+
+    // Attach start/continue button
+    var startBtn = document.getElementById('lessonStartBtn');
+    if (startBtn) {
+      startBtn.addEventListener('click', function() {
+        var entryId = startBtn.getAttribute('data-entry-id');
+        window.location.hash = '#/entry/' + encodeURIComponent(entryId);
+      });
+    }
+
+    // Attach entry click handlers
+    mainEl.querySelectorAll('.lesson-entry-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var entryId = el.getAttribute('data-entry-id');
+        if (entryId) {
+          window.location.hash = '#/entry/' + encodeURIComponent(entryId);
+        }
+      });
+    });
+
+    // Edit button
+    var editBtn = document.getElementById('lessonEditBtn');
+    if (editBtn) {
+      editBtn.addEventListener('click', function() {
+        openLessonModal(lesson);
+      });
+    }
+
+    // Delete button
+    var deleteBtn = document.getElementById('lessonDeleteBtn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async function() {
+        var ok = await showConfirm('Delete Lesson', 'Delete "' + lesson.title + '"? This cannot be undone.');
+        if (!ok) return;
+        try {
+          var resp = await fetch('/api/lessons/' + encodeURIComponent(lesson.id), { method: 'DELETE' });
+          if (!resp.ok) throw new Error('Delete failed');
+          window.location.hash = '#/lessons';
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      });
+    }
+  }
+
+  function attachLessonBackBtn() {
+    var btn = document.getElementById('backToLessons');
+    if (btn) {
+      btn.addEventListener('click', function() {
+        window.location.hash = '#/lessons';
+      });
+    }
+  }
+
+  // ---- Lesson Create/Edit Modal ----
+
+  function openLessonModal(existingLesson) {
+    var isEdit = !!existingLesson;
+    var selectedEntries = []; // { id, title, order, note }
+
+    if (isEdit && existingLesson.entries) {
+      selectedEntries = existingLesson.entries.map(function(item, idx) {
+        return {
+          id: item.entry ? item.entry.id : '',
+          title: item.entry ? (item.entry.title || item.entry.id) : 'Unknown',
+          order: item.order != null ? item.order : (idx + 1),
+          note: item.note || ''
+        };
+      });
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'lesson-modal-overlay';
+
+    var modal = document.createElement('div');
+    modal.className = 'lesson-modal';
+
+    modal.innerHTML = '<h3>' + (isEdit ? 'Edit Lesson' : 'Create Lesson') + '</h3>'
+      + '<div class="lesson-modal-field">'
+      + '<label for="lessonTitleInput">Title *</label>'
+      + '<input type="text" id="lessonTitleInput" placeholder="Lesson title" value="' + escapeHtml(isEdit ? existingLesson.title : '') + '">'
+      + '</div>'
+      + '<div class="lesson-modal-field">'
+      + '<label for="lessonDescInput">Description</label>'
+      + '<textarea id="lessonDescInput" placeholder="Optional description" rows="2">' + escapeHtml(isEdit ? (existingLesson.description || '') : '') + '</textarea>'
+      + '</div>'
+      + '<div class="lesson-modal-field">'
+      + '<label>Entries</label>'
+      + '<div class="entry-picker" id="entryPickerContainer">'
+      + '<input type="text" class="entry-picker-search" id="entryPickerSearch" placeholder="Search entries...">'
+      + '<div id="entryPickerList"></div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="lesson-modal-field">'
+      + '<label>Selected entries (drag to reorder)</label>'
+      + '<div class="entry-order-list" id="entryOrderList"></div>'
+      + '</div>'
+      + '<div class="lesson-modal-actions">'
+      + '<button class="btn-outline btn-sm" id="lessonModalCancel">Cancel</button>'
+      + '<button class="btn-primary btn-sm" id="lessonModalSave">' + (isEdit ? 'Save' : 'Create') + '</button>'
+      + '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    var allPickerEntries = [];
+
+    // Load entries for picker
+    fetch('/api/entries?lifecycle=active')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        allPickerEntries = data.entries || [];
+        renderPickerEntries('');
+      });
+
+    function renderPickerEntries(searchTerm) {
+      var container = document.getElementById('entryPickerList');
+      if (!container) return;
+      var filtered = allPickerEntries;
+      if (searchTerm) {
+        var term = searchTerm.toLowerCase();
+        filtered = allPickerEntries.filter(function(e) {
+          return (e.title || '').toLowerCase().indexOf(term) >= 0 || (e.id || '').toLowerCase().indexOf(term) >= 0;
+        });
+      }
+      var html = '';
+      for (var i = 0; i < filtered.length; i++) {
+        var e = filtered[i];
+        var checked = selectedEntries.some(function(s) { return s.id === e.id; }) ? ' checked' : '';
+        html += '<label class="entry-picker-item">';
+        html += '<input type="checkbox" value="' + escapeHtml(e.id) + '"' + checked + '>';
+        html += '<span>' + escapeHtml(e.title) + '</span>';
+        html += '</label>';
+      }
+      if (filtered.length === 0) {
+        html = '<div style="padding:0.5rem 0.75rem;color:var(--text-light);font-size:0.8125rem;">No entries found</div>';
+      }
+      container.innerHTML = html;
+
+      // Attach checkbox handlers
+      container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var entryId = cb.value;
+          if (cb.checked) {
+            var entry = allPickerEntries.find(function(e) { return e.id === entryId; });
+            if (entry && !selectedEntries.some(function(s) { return s.id === entryId; })) {
+              selectedEntries.push({
+                id: entry.id,
+                title: entry.title || entry.id,
+                order: selectedEntries.length + 1,
+                note: ''
+              });
+            }
+          } else {
+            selectedEntries = selectedEntries.filter(function(s) { return s.id !== entryId; });
+            // Re-number
+            selectedEntries.forEach(function(s, idx) { s.order = idx + 1; });
+          }
+          renderOrderList();
+        });
+      });
+    }
+
+    function renderOrderList() {
+      var container = document.getElementById('entryOrderList');
+      if (!container) return;
+      if (selectedEntries.length === 0) {
+        container.innerHTML = '<div style="padding:0.5rem;color:var(--text-light);font-size:0.8125rem;">No entries selected</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < selectedEntries.length; i++) {
+        var s = selectedEntries[i];
+        html += '<div class="entry-order-item" data-idx="' + i + '">';
+        html += '<span style="color:var(--text-light);font-size:0.75rem;min-width:1.25rem;text-align:center;">' + (i + 1) + '</span>';
+        html += '<span class="entry-order-item-title">' + escapeHtml(s.title) + '</span>';
+        html += '<input type="text" class="entry-order-item-note" placeholder="Note..." value="' + escapeHtml(s.note) + '" data-idx="' + i + '">';
+        if (i > 0) {
+          html += '<button class="entry-order-btn" data-action="up" data-idx="' + i + '">&uarr;</button>';
+        }
+        if (i < selectedEntries.length - 1) {
+          html += '<button class="entry-order-btn" data-action="down" data-idx="' + i + '">&darr;</button>';
+        }
+        html += '<button class="entry-order-btn entry-order-remove" data-action="remove" data-idx="' + i + '">&times;</button>';
+        html += '</div>';
+      }
+      container.innerHTML = html;
+
+      // Note inputs
+      container.querySelectorAll('.entry-order-item-note').forEach(function(input) {
+        input.addEventListener('input', function() {
+          var idx = parseInt(input.getAttribute('data-idx'), 10);
+          if (selectedEntries[idx]) {
+            selectedEntries[idx].note = input.value;
+          }
+        });
+      });
+
+      // Order buttons
+      container.querySelectorAll('.entry-order-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var idx = parseInt(btn.getAttribute('data-idx'), 10);
+          var action = btn.getAttribute('data-action');
+          if (action === 'up' && idx > 0) {
+            var tmp = selectedEntries[idx];
+            selectedEntries[idx] = selectedEntries[idx - 1];
+            selectedEntries[idx - 1] = tmp;
+          } else if (action === 'down' && idx < selectedEntries.length - 1) {
+            var tmp2 = selectedEntries[idx];
+            selectedEntries[idx] = selectedEntries[idx + 1];
+            selectedEntries[idx + 1] = tmp2;
+          } else if (action === 'remove') {
+            var removedId = selectedEntries[idx].id;
+            selectedEntries.splice(idx, 1);
+            // Uncheck in picker
+            var cb = document.querySelector('#entryPickerList input[value="' + removedId + '"]');
+            if (cb) cb.checked = false;
+          }
+          selectedEntries.forEach(function(s, i) { s.order = i + 1; });
+          renderOrderList();
+        });
+      });
+    }
+
+    // Search handler
+    document.getElementById('entryPickerSearch').addEventListener('input', debounce(function() {
+      renderPickerEntries(document.getElementById('entryPickerSearch').value.trim());
+    }, 200));
+
+    // Render initial order list
+    renderOrderList();
+
+    // Cancel
+    document.getElementById('lessonModalCancel').addEventListener('click', function() {
+      overlay.remove();
+    });
+
+    // Click outside modal to close
+    overlay.addEventListener('click', function(ev) {
+      if (ev.target === overlay) overlay.remove();
+    });
+
+    // Save
+    document.getElementById('lessonModalSave').addEventListener('click', async function() {
+      var title = document.getElementById('lessonTitleInput').value.trim();
+      if (!title) {
+        alert('Title is required');
+        return;
+      }
+
+      var body = {
+        title: title,
+        description: document.getElementById('lessonDescInput').value.trim() || undefined,
+        entries: selectedEntries.map(function(s) {
+          return { entry_id: s.id, order: s.order, note: s.note || undefined };
+        })
+      };
+
+      try {
+        var saveBtn = document.getElementById('lessonModalSave');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        var url, method;
+        if (isEdit) {
+          url = '/api/lessons/' + encodeURIComponent(existingLesson.id);
+          method = 'PUT';
+        } else {
+          url = '/api/lessons';
+          method = 'POST';
+        }
+
+        var resp = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          var errData = await resp.json().catch(function() { return {}; });
+          throw new Error(errData.error || 'Save failed');
+        }
+
+        overlay.remove();
+
+        // Refresh
+        if (isEdit) {
+          await renderLessonDetail(existingLesson.id);
+        } else {
+          await renderLessonList();
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+        var saveBtn2 = document.getElementById('lessonModalSave');
+        if (saveBtn2) {
+          saveBtn2.disabled = false;
+          saveBtn2.textContent = isEdit ? 'Save' : 'Create';
+        }
+      }
+    });
+  }
+
   // ---- Settings page ----
   function renderSettings() {
     sidebar.classList.add('hidden');
+    document.querySelector('.app-layout').classList.remove('lessons-mode');
     mainEl.innerHTML = `
       <div class="settings-page">
-        <a href="#/" class="back-link">&larr; Back to entries</a>
-        <h2>Q&A Settings</h2>
+        <a href="#/" class="back-link">&larr; Back</a>
+        <h2>Settings</h2>
+
+        <h3 style="margin-top:1.5rem;margin-bottom:0.75rem;">Default View</h3>
+        <div class="setting-group">
+          <label for="defaultViewSelect">View on startup</label>
+          <select id="defaultViewSelect">
+            <option value="active">Entries</option>
+            <option value="lessons">Lessons</option>
+          </select>
+        </div>
+
+        <h2 style="margin-top:2rem;">Q&A Settings</h2>
         <p class="settings-desc">The Q&A feature lets you ask follow-up questions about learning entries. It requires authentication with Claude.</p>
 
         <div id="settingsStatus"></div>
@@ -1121,24 +1641,58 @@
         el.innerHTML = '<div class="help-box" style="border-left: 3px solid #f59e0b; margin-bottom: 1.5rem;"><strong>Q&A is not configured.</strong> Follow the setup instructions below.</div>';
       }
     });
+
+    // Load default view setting
+    fetch('/api/config').then(function(r) { return r.json(); }).then(function(config) {
+      var sel = document.getElementById('defaultViewSelect');
+      if (sel && config.default_view) {
+        sel.value = config.default_view;
+      }
+    }).catch(function() {});
+
+    // Handle default view change
+    var defaultViewSel = document.getElementById('defaultViewSelect');
+    if (defaultViewSel) {
+      defaultViewSel.addEventListener('change', function() {
+        fetch('/api/config', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ default_view: defaultViewSel.value })
+        });
+      });
+    }
   }
 
   // ---- Hash-based routing ----
   function handleRoute() {
     const hash = window.location.hash || '#/';
     const detailMatch = hash.match(/^#\/entry\/(.+)$/);
+    const lessonDetailMatch = hash.match(/^#\/lessons\/(.+)$/);
 
     if (hash === '#/settings') {
       state.currentView = 'settings';
+      state.currentMode = 'entries';
+      document.querySelector('.app-layout').classList.remove('lessons-mode');
       renderSettings();
+    } else if (hash === '#/lessons') {
+      renderLessonList();
+    } else if (lessonDetailMatch) {
+      var lessonId = decodeURIComponent(lessonDetailMatch[1]);
+      renderLessonDetail(lessonId);
     } else if (detailMatch) {
       const id = decodeURIComponent(detailMatch[1]);
+      state.currentMode = 'entries';
+      document.querySelector('.app-layout').classList.remove('lessons-mode');
       sidebar.classList.remove('hidden');
+      updateViewSwitcher('entries');
       fetchDetail(id);
     } else {
       state.currentView = 'list';
+      state.currentMode = 'entries';
       state.detailEntry = null;
+      document.querySelector('.app-layout').classList.remove('lessons-mode');
       sidebar.classList.remove('hidden');
+      updateViewSwitcher('entries');
       render();
     }
   }
@@ -1161,10 +1715,22 @@
       state.learnedEntries = {};
     });
 
-  fetchEntries().then(() => {
-    // After initial load, handle route (might be deep link to detail)
-    handleRoute();
-  });
+  // Check default view config before initial route
+  fetch('/api/config')
+    .then(function(r) { return r.json(); })
+    .then(function(config) {
+      // If no hash set and default_view is lessons, navigate there
+      if ((!window.location.hash || window.location.hash === '#/') && config.default_view === 'lessons') {
+        window.location.hash = '#/lessons';
+      }
+    })
+    .catch(function() {})
+    .then(function() {
+      return fetchEntries();
+    })
+    .then(function() {
+      handleRoute();
+    });
 
 })();
 </script>
