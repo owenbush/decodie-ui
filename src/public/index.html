@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decodie</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle filters">&#9776;</button>
+    <h1><a href="#/" id="homeLink" style="display:flex;align-items:center;gap:0.5rem;color:inherit;text-decoration:none;"><img src="/decodie.png" alt="Decodie" style="height:28px;width:28px;"> Decodie</a></h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <span class="project-name" id="projectName"></span>
+    <a href="#/settings" class="settings-link" id="settingsLink">Settings</a>
+  </div>
+</header>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+  <!-- Sidebar / Filter Panel -->
+  <aside class="sidebar" id="sidebar">
+    <h3>Search</h3>
+    <input type="text" class="search-input" id="searchInput" placeholder="Search entries...">
+
+    <h3>Lifecycle</h3>
+    <div class="lifecycle-tabs" id="lifecycleTabs">
+      <button class="lifecycle-tab active" data-value="active">Active</button>
+      <button class="lifecycle-tab" data-value="archived">Archived</button>
+      <button class="lifecycle-tab" data-value="">All</button>
+    </div>
+
+    <h3>Experience Level</h3>
+    <div class="filter-group" id="levelFilters">
+      <label><input type="checkbox" value="foundational"> Foundational</label>
+      <label><input type="checkbox" value="intermediate"> Intermediate</label>
+      <label><input type="checkbox" value="advanced"> Advanced</label>
+      <label><input type="checkbox" value="ecosystem"> Ecosystem</label>
+    </div>
+
+    <h3>Decision Type</h3>
+    <div class="filter-group" id="typeFilters">
+      <label><input type="checkbox" value="explanation"> Explanation</label>
+      <label><input type="checkbox" value="rationale"> Rationale</label>
+      <label><input type="checkbox" value="pattern"> Pattern</label>
+      <label><input type="checkbox" value="warning"> Warning</label>
+      <label><input type="checkbox" value="convention"> Convention</label>
+    </div>
+
+    <h3>Topics</h3>
+    <div class="topic-chips" id="topicChips"></div>
+
+    <button class="filter-reset" id="resetFilters">Reset all filters</button>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+    <!-- Dynamically rendered -->
+  </main>
+</div>
+
+<!-- Q&A Panel -->
+<div class="qa-backdrop" id="qaBackdrop"></div>
+<div class="qa-panel" id="qaPanel">
+  <div class="qa-panel-header">
+    <h3>Ask about this</h3>
+    <button class="qa-clear-btn" id="qaClear" title="Clear conversation">Clear</button>
+    <button class="qa-close" id="qaClose" aria-label="Close Q&A panel">&times;</button>
+  </div>
+  <div class="qa-panel-body">
+    <div>
+      <div class="qa-context-label">Selected context</div>
+      <div class="qa-context" id="qaContext"></div>
+    </div>
+    <div class="qa-messages" id="qaMessages"></div>
+    <div class="qa-input-row">
+      <textarea class="qa-input" id="qaInput" placeholder="Ask a question..." rows="1"></textarea>
+      <button class="qa-send" id="qaSend">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation dialog (hidden by default) -->
+<div class="confirm-overlay hidden" id="confirmOverlay">
+  <div class="confirm-dialog">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="dialog-actions">
+      <button class="btn-outline btn-sm" id="confirmCancel">Cancel</button>
+      <button class="btn-danger btn-sm" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- State ----
+  const state = {
+    entries: [],
+    allTopics: [],
+    projectName: '',
+    filters: {
+      search: '',
+      lifecycle: 'active',
+      levels: [],
+      types: [],
+      topics: [],
+    },
+    loading: false,
+    error: null,
+    currentView: 'list',   // 'list' or 'detail'
+    detailEntry: null,
+    detailLoading: false,
+    detailError: null,
+    qaEnabled: false,
+    qaConversation: [],    // Array of {role, content}
+    qaSelectedText: '',
+    qaStreaming: false,
+    conversationEntryIds: [],
+    qaConversationCreatedAt: null,
+  };
+
+  // ---- DOM refs ----
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  const mainEl = $('#mainContent');
+  const searchInput = $('#searchInput');
+  const lifecycleTabs = $$('#lifecycleTabs .lifecycle-tab');
+  const topicChipsEl = $('#topicChips');
+  const projectNameEl = $('#projectName');
+  const sidebarToggle = $('#sidebarToggle');
+  const sidebar = $('#sidebar');
+  const backdrop = $('#sidebarBackdrop');
+  const confirmOverlay = $('#confirmOverlay');
+
+  // ---- Utilities ----
+  function debounce(fn, ms) {
+    let t;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), ms);
+    };
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function worstRefStatus(resolutions) {
+    if (!resolutions || resolutions.length === 0) return null;
+    const order = ['stale', 'fuzzy', 'drifted', 'resolved'];
+    let worst = 'resolved';
+    for (const r of resolutions) {
+      if (order.indexOf(r.status) < order.indexOf(worst)) {
+        worst = r.status;
+      }
+    }
+    return worst;
+  }
+
+  function detectLanguage(code) {
+    if (!code) return 'plaintext';
+    // Simple heuristic
+    if (code.includes('import ') && (code.includes(' from ') || code.includes('require('))) return 'typescript';
+    if (code.includes('def ') || code.includes('import ') && code.includes(':')) return 'python';
+    if (code.includes('func ') && code.includes(':=')) return 'go';
+    if (code.includes('fn ') && code.includes('->')) return 'rust';
+    if (code.includes('function ') || code.includes('=>') || code.includes('const ') || code.includes('let ')) return 'javascript';
+    if (code.includes('<') && code.includes('/>')) return 'jsx';
+    if (code.match(/^\s*\{/)) return 'json';
+    return 'javascript';
+  }
+
+  // ---- API ----
+  async function fetchEntries() {
+    state.loading = true;
+    state.error = null;
+    render();
+    try {
+      const params = new URLSearchParams();
+      if (state.filters.lifecycle) params.set('lifecycle', state.filters.lifecycle);
+      if (state.filters.search) params.set('search', state.filters.search);
+      // Note: API supports single level/topic/type, so we fetch all and filter client-side for multi-select
+      const resp = await fetch('/api/entries?' + params.toString());
+      if (!resp.ok) throw new Error('Failed to load entries');
+      const data = await resp.json();
+      state.projectName = data.project || '';
+      projectNameEl.textContent = state.projectName ? 'Current Project: ' + state.projectName : '';
+
+      state.entries = data.entries || [];
+      // Build unique topic list from all entries (not just filtered)
+      rebuildTopics(data.entries || []);
+    } catch (e) {
+      state.error = e.message;
+    }
+    state.loading = false;
+    render();
+  }
+
+  async function fetchAllTopics() {
+    // Fetch all entries once to get full topic list
+    try {
+      const resp = await fetch('/api/entries');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      rebuildTopics(data.entries || []);
+      if (data.project) {
+        state.projectName = data.project;
+        projectNameEl.textContent = data.project ? 'Current Project: ' + data.project : '';
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  function rebuildTopics(entries) {
+    const set = new Set();
+    for (const e of entries) {
+      if (e.topics) e.topics.forEach((t) => set.add(t));
+    }
+    state.allTopics = Array.from(set).sort();
+    renderTopicChips();
+  }
+
+  async function fetchDetail(id) {
+    state.detailLoading = true;
+    state.detailError = null;
+    state.detailEntry = null;
+    state.currentView = 'detail';
+    render();
+    try {
+      const resp = await fetch('/api/entries/' + encodeURIComponent(id));
+      if (!resp.ok) throw new Error('Entry not found');
+      state.detailEntry = await resp.json();
+    } catch (e) {
+      state.detailError = e.message;
+    }
+    state.detailLoading = false;
+    render();
+  }
+
+  async function patchEntry(id, body) {
+    const resp = await fetch('/api/entries/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || 'Update failed');
+    }
+    return resp.json();
+  }
+
+  // ---- Confirm dialog ----
+  function showConfirm(title, message) {
+    return new Promise((resolve) => {
+      $('#confirmTitle').textContent = title;
+      $('#confirmMessage').textContent = message;
+      confirmOverlay.classList.remove('hidden');
+
+      function cleanup(result) {
+        confirmOverlay.classList.add('hidden');
+        $('#confirmOk').removeEventListener('click', onOk);
+        $('#confirmCancel').removeEventListener('click', onCancel);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+
+      $('#confirmOk').addEventListener('click', onOk);
+      $('#confirmCancel').addEventListener('click', onCancel);
+    });
+  }
+
+  // ---- Filtering (client-side multi-select) ----
+  function filteredEntries() {
+    let list = state.entries;
+    const f = state.filters;
+
+    if (f.levels.length > 0) {
+      list = list.filter((e) => f.levels.includes(e.experience_level));
+    }
+    if (f.types.length > 0) {
+      list = list.filter((e) => f.types.includes(e.decision_type));
+    }
+    if (f.topics.length > 0) {
+      list = list.filter((e) => e.topics && f.topics.some((t) => e.topics.includes(t)));
+    }
+
+    // Sort: pinned first, then by timestamp descending
+    list.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return (b.timestamp || '').localeCompare(a.timestamp || '');
+    });
+
+    return list;
+  }
+
+  // ---- Rendering ----
+  function render() {
+    if (state.currentView === 'detail') {
+      renderDetail();
+    } else {
+      renderList();
+    }
+  }
+
+  function renderList() {
+    if (state.loading) {
+      mainEl.innerHTML = '<div class="state-message"><div class="spinner"></div><div>Loading entries...</div></div>';
+      return;
+    }
+    if (state.error) {
+      mainEl.innerHTML = '<div class="error-banner">' + escapeHtml(state.error) + '</div>';
+      return;
+    }
+
+    const entries = filteredEntries();
+    let html = '<div class="entry-list-header"><h2>Learning Entries</h2><span class="entry-count">' + entries.length + ' entries</span></div>';
+
+    if (entries.length === 0) {
+      html += '<div class="state-message">No entries match the current filters.</div>';
+      mainEl.innerHTML = html;
+      return;
+    }
+
+    html += '<div class="entry-list">';
+    for (const e of entries) {
+      const worst = worstRefStatus(e.reference_resolutions);
+      const pinIcon = e.pinned ? '<span class="pin-icon" title="Pinned">&#128204;</span>' : '';
+
+      html += '<div class="entry-card' + (e.pinned ? ' pinned' : '') + '" data-id="' + escapeHtml(e.id) + '">';
+      html += '<div class="entry-card-header">';
+      html += pinIcon;
+      html += '<span class="entry-card-title">' + escapeHtml(e.title) + '</span>';
+      if (state.conversationEntryIds.includes(e.id)) {
+        html += '<span class="conversation-indicator" title="Has Q&amp;A conversation">&#128172;</span>';
+      }
+      html += '<div class="entry-card-ref-dots">';
+      if (worst) {
+        html += '<span class="ref-dot ref-dot-' + worst + '" title="Reference: ' + worst + '"></span>';
+      }
+      html += '</div>';
+      html += '</div>';
+
+      html += '<div class="entry-card-meta">';
+      html += '<span class="badge badge-' + e.experience_level + '">' + e.experience_level + '</span>';
+      html += '<span class="badge badge-type">' + e.decision_type + '</span>';
+      html += '<span class="entry-card-timestamp">' + formatDate(e.timestamp) + '</span>';
+      html += '</div>';
+
+      if (e.topics && e.topics.length > 0) {
+        html += '<div class="entry-card-topics">';
+        for (const t of e.topics) {
+          html += '<span class="tag">' + escapeHtml(t) + '</span>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+    }
+    html += '</div>';
+
+    mainEl.innerHTML = html;
+
+    // Attach click handlers
+    mainEl.querySelectorAll('.entry-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = card.getAttribute('data-id');
+        window.location.hash = '#/entry/' + encodeURIComponent(id);
+      });
+    });
+  }
+
+  function renderDetail() {
+    if (state.detailLoading) {
+      mainEl.innerHTML = '<div class="detail-view"><button class="back-btn" id="backBtn">&larr; Back</button><div class="state-message"><div class="spinner"></div><div>Loading entry...</div></div></div>';
+      attachBackBtn();
+      return;
+    }
+    if (state.detailError) {
+      mainEl.innerHTML = '<div class="detail-view"><button class="back-btn" id="backBtn">&larr; Back</button><div class="error-banner">' + escapeHtml(state.detailError) + '</div></div>';
+      attachBackBtn();
+      return;
+    }
+
+    const e = state.detailEntry;
+    if (!e) return;
+
+    let html = '<div class="detail-view">';
+    html += '<button class="back-btn" id="backBtn">&larr; Back to list</button>';
+
+    // Header
+    html += '<div class="detail-header">';
+    html += '<h2 class="detail-title">' + escapeHtml(e.title) + '</h2>';
+    html += '<div class="detail-meta">';
+    html += '<span class="badge badge-' + e.experience_level + '">' + e.experience_level + '</span>';
+    html += '<span class="badge badge-type">' + e.decision_type + '</span>';
+    if (e.topics) {
+      for (const t of e.topics) {
+        html += '<span class="tag">' + escapeHtml(t) + '</span>';
+      }
+    }
+    html += '<span class="timestamp">' + formatDate(e.timestamp) + '</span>';
+    if (e.lifecycle === 'archived') {
+      html += '<span class="badge" style="background:#5e7d96">archived</span>';
+    }
+    if (e.pinned) {
+      html += '<span class="badge" style="background:var(--primary)">pinned</span>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    // Code snippet
+    if (e.code_snippet) {
+      const lang = detectLanguage(e.code_snippet);
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Code Snippet';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="code">Ask</button>';
+      }
+      html += '</div>';
+      html += '<div class="code-block"><pre><code class="language-' + lang + '">' + escapeHtml(e.code_snippet) + '</code></pre></div>';
+      html += '</div>';
+    }
+
+    // Explanation
+    if (e.explanation) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Explanation';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="explanation">Ask</button>';
+      }
+      html += '</div>';
+      html += '<div class="detail-explanation">' + escapeHtml(e.explanation) + '</div>';
+      html += '</div>';
+    }
+
+    // Alternatives considered (collapsible)
+    if (e.alternatives_considered) {
+      html += '<div class="detail-section">';
+      html += '<details class="collapsible-section">';
+      html += '<summary>Alternatives Considered';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="alternatives" style="margin-left:auto;">Ask</button>';
+      }
+      html += '</summary>';
+      html += '<div class="collapsible-body">' + escapeHtml(e.alternatives_considered) + '</div>';
+      html += '</details>';
+      html += '</div>';
+    }
+
+    // Key concepts
+    if (e.key_concepts && e.key_concepts.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Key Concepts';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="concepts">Ask</button>';
+      }
+      html += '</div>';
+      html += '<ul class="concepts-list">';
+      for (const c of e.key_concepts) {
+        html += '<li>' + escapeHtml(c) + '</li>';
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // External docs
+    if (e.external_docs && e.external_docs.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Documentation</div>';
+      html += '<div class="doc-links">';
+      for (const d of e.external_docs) {
+        html += '<a class="doc-link" href="' + escapeHtml(d.url) + '" target="_blank" rel="noopener">&#128196; ' + escapeHtml(d.label) + '</a>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    // Reference resolutions
+    if (e.reference_resolutions && e.reference_resolutions.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Code References</div>';
+      html += '<div class="ref-list">';
+      for (const r of e.reference_resolutions) {
+        html += '<div class="ref-item">';
+        html += '<span class="ref-dot ref-dot-' + r.status + '" title="' + r.status + '"></span>';
+        html += '<div>';
+        html += '<div class="ref-item-file">' + escapeHtml(r.reference.file) + (r.reference.anchor ? '#' + escapeHtml(r.reference.anchor) : '') + '</div>';
+        html += '<div class="ref-item-msg">' + escapeHtml(r.message) + '</div>';
+        html += '</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    // Continue conversation button
+    if (state.qaEnabled && state.conversationEntryIds.includes(e.id)) {
+      html += '<button class="qa-continue-btn" id="continueConversationBtn">Continue conversation</button>';
+    }
+
+    // Actions
+    html += '<div class="detail-actions">';
+    if (e.lifecycle !== 'archived') {
+      html += '<button class="btn-danger btn-sm" id="archiveBtn">Mark as Learned</button>';
+    }
+    if (e.pinned) {
+      html += '<button class="btn-outline btn-sm" id="pinBtn">Unpin</button>';
+    } else {
+      html += '<button class="btn-primary btn-sm" id="pinBtn">Pin</button>';
+    }
+    html += '</div>';
+
+    html += '</div>'; // .detail-view
+
+    mainEl.innerHTML = html;
+
+    // Syntax highlight
+    if (typeof Prism !== 'undefined') {
+      Prism.highlightAllUnder(mainEl);
+    }
+
+    attachBackBtn();
+    attachDetailActions(e);
+  }
+
+  function attachBackBtn() {
+    const btn = $('#backBtn');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        window.location.hash = '#/';
+      });
+    }
+  }
+
+  function attachDetailActions(entry) {
+    const archiveBtn = $('#archiveBtn');
+    if (archiveBtn) {
+      archiveBtn.addEventListener('click', async () => {
+        const ok = await showConfirm(
+          'Mark as Learned',
+          'This will archive "' + entry.title + '". You can find it later under the Archived tab.'
+        );
+        if (!ok) return;
+        try {
+          archiveBtn.disabled = true;
+          archiveBtn.textContent = 'Archiving...';
+          await patchEntry(entry.id, { lifecycle: 'archived' });
+          // Refresh detail
+          await fetchDetail(entry.id);
+        } catch (e) {
+          alert('Error: ' + e.message);
+          archiveBtn.disabled = false;
+          archiveBtn.textContent = 'Mark as Learned';
+        }
+      });
+    }
+
+    // Continue conversation button
+    var continueBtn = $('#continueConversationBtn');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', function () {
+        openQAPanel('');
+      });
+    }
+
+    // Q&A section "Ask" buttons
+    if (state.qaEnabled) {
+      mainEl.querySelectorAll('.qa-section-ask').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const section = btn.getAttribute('data-section');
+          let text = '';
+          if (section === 'code') text = entry.code_snippet || '';
+          else if (section === 'explanation') text = entry.explanation || '';
+          else if (section === 'alternatives') text = entry.alternatives_considered || '';
+          else if (section === 'concepts') text = (entry.key_concepts || []).join(', ');
+          if (text) openQAPanel(text);
+        });
+      });
+    }
+
+    const pinBtn = $('#pinBtn');
+    if (pinBtn) {
+      pinBtn.addEventListener('click', async () => {
+        try {
+          pinBtn.disabled = true;
+          const newPinned = !entry.pinned;
+          pinBtn.textContent = newPinned ? 'Pinning...' : 'Unpinning...';
+          await patchEntry(entry.id, { pinned: newPinned });
+          await fetchDetail(entry.id);
+        } catch (e) {
+          alert('Error: ' + e.message);
+          pinBtn.disabled = false;
+          pinBtn.textContent = entry.pinned ? 'Unpin' : 'Pin';
+        }
+      });
+    }
+  }
+
+  // ---- Topic chips in sidebar ----
+  function renderTopicChips() {
+    let html = '';
+    for (const t of state.allTopics) {
+      const active = state.filters.topics.includes(t) ? ' active' : '';
+      html += '<button class="topic-chip' + active + '" data-topic="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+    }
+    topicChipsEl.innerHTML = html;
+
+    topicChipsEl.querySelectorAll('.topic-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const topic = chip.getAttribute('data-topic');
+        const idx = state.filters.topics.indexOf(topic);
+        if (idx >= 0) {
+          state.filters.topics.splice(idx, 1);
+        } else {
+          state.filters.topics.push(topic);
+        }
+        renderTopicChips();
+        render();
+      });
+    });
+  }
+
+  // ---- Event bindings ----
+
+  // Search
+  searchInput.addEventListener('input', debounce(() => {
+    state.filters.search = searchInput.value.trim();
+    fetchEntries();
+  }, 300));
+
+  // Lifecycle tabs
+  lifecycleTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      lifecycleTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.filters.lifecycle = tab.getAttribute('data-value');
+      fetchEntries();
+    });
+  });
+
+  // Level checkboxes
+  $$('#levelFilters input[type="checkbox"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      state.filters.levels = Array.from($$('#levelFilters input:checked')).map((c) => c.value);
+      render();
+    });
+  });
+
+  // Type checkboxes
+  $$('#typeFilters input[type="checkbox"]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      state.filters.types = Array.from($$('#typeFilters input:checked')).map((c) => c.value);
+      render();
+    });
+  });
+
+  // Reset filters
+  $('#resetFilters').addEventListener('click', () => {
+    state.filters = { search: '', lifecycle: 'active', levels: [], types: [], topics: [] };
+    searchInput.value = '';
+    $$('#levelFilters input:checked').forEach((c) => { c.checked = false; });
+    $$('#typeFilters input:checked').forEach((c) => { c.checked = false; });
+    lifecycleTabs.forEach((t) => t.classList.remove('active'));
+    lifecycleTabs[0].classList.add('active');
+    renderTopicChips();
+    fetchEntries();
+  });
+
+  // Sidebar toggle (mobile)
+  sidebarToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    backdrop.classList.toggle('open');
+  });
+
+  backdrop.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('open');
+  });
+
+  // ---- Q&A Feature ----
+  const qaPanel = $('#qaPanel');
+  const qaBackdrop = $('#qaBackdrop');
+  const qaCloseBtn = $('#qaClose');
+  const qaContext = $('#qaContext');
+  const qaMessages = $('#qaMessages');
+  const qaInput = $('#qaInput');
+  const qaSend = $('#qaSend');
+
+  let qaTooltipEl = null;
+
+  function fetchConversationList() {
+    fetch('/api/conversations')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        state.conversationEntryIds = data.conversations || [];
+        render();
+      })
+      .catch(function () {});
+  }
+
+  async function checkQAStatus() {
+    try {
+      const resp = await fetch('/api/qa/status');
+      if (resp.ok) {
+        const data = await resp.json();
+        state.qaEnabled = data.enabled;
+      }
+    } catch (_) {
+      state.qaEnabled = false;
+    }
+  }
+
+  function openQAPanel(selectedText) {
+    // Show panel immediately with loading state
+    qaMessages.innerHTML = '<div class="state-message"><div class="spinner"></div><div>Loading...</div></div>';
+    qaInput.value = '';
+    qaPanel.classList.add('open');
+    qaBackdrop.classList.add('open');
+    removeQATooltip();
+
+    if (!state.detailEntry) return;
+
+    fetch('/api/conversations/' + encodeURIComponent(state.detailEntry.id))
+      .then(function (resp) {
+        if (resp.ok) return resp.json();
+        if (resp.status === 404) return null;
+        throw new Error('Failed to load conversation');
+      })
+      .then(function (data) {
+        if (data && data.messages && data.messages.length > 0) {
+          // Existing conversation found
+          state.qaConversation = data.messages;
+          state.qaSelectedText = (selectedText && selectedText.length > 0) ? selectedText : (data.selected_text || '');
+          state.qaConversationCreatedAt = data.created_at || null;
+          qaContext.textContent = state.qaSelectedText;
+
+          // Render timestamp and messages
+          qaMessages.innerHTML = '';
+          if (data.created_at) {
+            var ts = new Date(data.created_at);
+            var formatted = ts.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var tsDiv = document.createElement('div');
+            tsDiv.className = 'qa-timestamp';
+            tsDiv.textContent = 'Conversation from ' + formatted;
+            qaMessages.appendChild(tsDiv);
+          }
+          for (var i = 0; i < data.messages.length; i++) {
+            appendQAMessage(data.messages[i].role, data.messages[i].content, false);
+          }
+          qaMessages.scrollTop = qaMessages.scrollHeight;
+        } else {
+          // No existing conversation — start fresh
+          state.qaConversation = [];
+          state.qaConversationCreatedAt = null;
+          state.qaSelectedText = selectedText || '';
+          qaContext.textContent = state.qaSelectedText;
+          qaMessages.innerHTML = '';
+        }
+        qaInput.focus();
+      })
+      .catch(function () {
+        // On error, start fresh
+        state.qaConversation = [];
+        state.qaConversationCreatedAt = null;
+        state.qaSelectedText = selectedText || '';
+        qaContext.textContent = state.qaSelectedText;
+        qaMessages.innerHTML = '';
+        qaInput.focus();
+      });
+  }
+
+  function closeQAPanel() {
+    qaPanel.classList.remove('open');
+    qaBackdrop.classList.remove('open');
+    state.qaStreaming = false;
+  }
+
+  qaCloseBtn.addEventListener('click', closeQAPanel);
+  qaBackdrop.addEventListener('click', closeQAPanel);
+
+  document.getElementById('qaClear').addEventListener('click', function () {
+    if (!state.detailEntry) return;
+    fetch('/api/conversations/' + encodeURIComponent(state.detailEntry.id), { method: 'DELETE' });
+    state.qaConversation = [];
+    state.qaConversationCreatedAt = null;
+    var idx = state.conversationEntryIds.indexOf(state.detailEntry.id);
+    if (idx > -1) state.conversationEntryIds.splice(idx, 1);
+    document.getElementById('qaMessages').innerHTML = '';
+  });
+
+  function removeQATooltip() {
+    if (qaTooltipEl) {
+      qaTooltipEl.remove();
+      qaTooltipEl = null;
+    }
+  }
+
+  function showQATooltip(x, y, selectedText) {
+    removeQATooltip();
+    const tip = document.createElement('div');
+    tip.className = 'qa-tooltip';
+    tip.textContent = 'Ask about this';
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+    tip.addEventListener('mousedown', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openQAPanel(selectedText);
+    });
+    document.body.appendChild(tip);
+    qaTooltipEl = tip;
+
+    // Adjust if off-screen
+    const rect = tip.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      tip.style.left = (window.innerWidth - rect.width - 8) + 'px';
+    }
+    if (rect.top < 0) {
+      tip.style.top = (y + 24) + 'px';
+    }
+  }
+
+  // Text selection handler on detail view sections
+  document.addEventListener('mouseup', function (ev) {
+    if (!state.qaEnabled || state.currentView !== 'detail') return;
+
+    // Check if the selection is within a QA-eligible area
+    const selectable = '.detail-explanation, .code-block, .collapsible-body, .concepts-list';
+    const target = ev.target;
+    const inSelectable = target && target.closest && target.closest(selectable);
+    if (!inSelectable) {
+      // Delay removal so tooltip click can fire
+      setTimeout(removeQATooltip, 200);
+      return;
+    }
+
+    const sel = window.getSelection();
+    const text = sel ? sel.toString().trim() : '';
+    if (!text || text.length < 2) {
+      setTimeout(removeQATooltip, 200);
+      return;
+    }
+
+    // Get position near selection
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const x = rect.left + rect.width / 2 - 55 + window.scrollX;
+    const y = rect.top - 36 + window.scrollY;
+
+    showQATooltip(x, y, text);
+  });
+
+  // Remove tooltip on click outside
+  document.addEventListener('mousedown', function (ev) {
+    if (qaTooltipEl && !qaTooltipEl.contains(ev.target)) {
+      removeQATooltip();
+    }
+  });
+
+  // Basic markdown rendering
+  function renderMarkdown(text) {
+    // Escape HTML
+    let html = escapeHtml(text);
+    // Code blocks: ```...```
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (_, lang, code) {
+      return '<pre><code>' + code + '</code></pre>';
+    });
+    // Inline code: `...`
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Bold: **...**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic: *...*
+    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
+  function appendQAMessage(role, content, streaming) {
+    const div = document.createElement('div');
+    div.className = 'qa-message qa-message-' + role + (streaming ? ' streaming' : '');
+    if (streaming && !content) {
+      div.innerHTML = '<div class="qa-response"><span class="qa-thinking">Thinking\u2026</span></div>';
+    } else {
+      div.innerHTML = '<div class="qa-response">' + renderMarkdown(content) + '</div>';
+    }
+    qaMessages.appendChild(div);
+    qaMessages.scrollTop = qaMessages.scrollHeight;
+    return div;
+  }
+
+  function updateQAMessage(el, content, streaming) {
+    el.className = 'qa-message qa-message-assistant' + (streaming ? ' streaming' : '');
+    el.innerHTML = '<div class="qa-response">' + renderMarkdown(content) + '</div>';
+    qaMessages.scrollTop = qaMessages.scrollHeight;
+  }
+
+  async function sendQAQuestion() {
+    const question = qaInput.value.trim();
+    if (!question || state.qaStreaming || !state.detailEntry) return;
+
+    state.qaStreaming = true;
+    qaSend.disabled = true;
+    qaInput.value = '';
+
+    // Show user message
+    appendQAMessage('user', question, false);
+
+    // Create assistant message element for streaming
+    const assistantEl = appendQAMessage('assistant', '', true);
+    let fullText = '';
+
+    try {
+      const body = {
+        entry_id: state.detailEntry.id,
+        selected_text: state.qaSelectedText,
+        question: question,
+        conversation: state.qaConversation.length > 0 ? state.qaConversation : undefined,
+      };
+
+      const resp = await fetch('/api/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(function () { return {}; });
+        throw new Error(errData.error || 'Request failed');
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') continue;
+
+          try {
+            const data = JSON.parse(payload);
+            if (data.type === 'delta' && data.text) {
+              fullText += data.text;
+              updateQAMessage(assistantEl, fullText, true);
+            } else if (data.type === 'error') {
+              fullText += '\n\n[Error: ' + data.error + ']';
+              updateQAMessage(assistantEl, fullText, false);
+            }
+          } catch (_) {
+            // ignore parse errors on partial data
+          }
+        }
+      }
+    } catch (err) {
+      fullText = fullText || '[Error: ' + err.message + ']';
+    }
+
+    updateQAMessage(assistantEl, fullText, false);
+
+    // Add to conversation history for follow-ups
+    state.qaConversation.push({ role: 'user', content: question });
+    state.qaConversation.push({ role: 'assistant', content: fullText });
+
+    // Auto-save conversation
+    var saveData = {
+      entry_id: state.detailEntry.id,
+      selected_text: state.qaSelectedText,
+      messages: state.qaConversation,
+      created_at: state.qaConversationCreatedAt || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    if (!state.qaConversationCreatedAt) {
+      state.qaConversationCreatedAt = saveData.created_at;
+    }
+    fetch('/api/conversations/' + encodeURIComponent(state.detailEntry.id), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(saveData)
+    }).then(function () {
+      // Update the conversation list so indicators appear
+      if (!state.conversationEntryIds.includes(state.detailEntry.id)) {
+        state.conversationEntryIds.push(state.detailEntry.id);
+      }
+    });
+
+    state.qaStreaming = false;
+    qaSend.disabled = false;
+    qaInput.focus();
+  }
+
+  qaSend.addEventListener('click', sendQAQuestion);
+
+  qaInput.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      sendQAQuestion();
+    }
+  });
+
+  // Auto-resize textarea
+  qaInput.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+
+  // ---- Settings page ----
+  function renderSettings() {
+    sidebar.classList.add('hidden');
+    mainEl.innerHTML = `
+      <div class="settings-page">
+        <a href="#/" class="back-link">&larr; Back to entries</a>
+        <h2>Q&A Settings</h2>
+        <p class="settings-desc">The Q&A feature lets you ask follow-up questions about learning entries. It requires authentication with Claude.</p>
+
+        <div id="settingsStatus"></div>
+
+        <div class="settings-form">
+          <h3>Setup</h3>
+          <p>Add one of the following to your <code>.decodie/.env</code> file:</p>
+
+          <div class="help-box">
+            <strong>Option A: OAuth Token</strong> (uses your Claude Pro/Max subscription)
+            <ol>
+              <li>Run <code>claude setup-token</code> in your terminal</li>
+              <li>Add to <code>.decodie/.env</code>:</li>
+            </ol>
+            <pre><code>CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-your-token-here</code></pre>
+            <p class="help-note">Works everywhere including Docker/DDEV. Billed against your subscription.</p>
+          </div>
+
+          <div class="help-box" style="margin-top: 1rem;">
+            <strong>Option B: API Key</strong> (pay-per-token)
+            <ol>
+              <li>Get a key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></li>
+              <li>Add to <code>.decodie/.env</code>:</li>
+            </ol>
+            <pre><code>CLAUDE_API_KEY=sk-ant-api03-your-key-here</code></pre>
+            <p class="help-note">Billed separately per token.</p>
+          </div>
+
+          <p style="margin-top: 1.5rem; color: #6b7280; font-size: 0.875rem;">
+            After editing the file, restart the server for changes to take effect.
+            For DDEV, run <code>ddev restart</code>.
+          </p>
+        </div>
+      </div>
+    `;
+
+    // Show current status
+    fetch('/api/qa/status').then(r => r.json()).then(function (status) {
+      const el = document.getElementById('settingsStatus');
+      if (status.enabled) {
+        el.innerHTML = '<div class="help-box" style="border-left: 3px solid #22c55e; margin-bottom: 1.5rem;"><strong>Q&A is enabled</strong> using ' + status.auth_method + '.</div>';
+      } else {
+        el.innerHTML = '<div class="help-box" style="border-left: 3px solid #f59e0b; margin-bottom: 1.5rem;"><strong>Q&A is not configured.</strong> Follow the setup instructions below.</div>';
+      }
+    });
+  }
+
+  // ---- Hash-based routing ----
+  function handleRoute() {
+    const hash = window.location.hash || '#/';
+    const detailMatch = hash.match(/^#\/entry\/(.+)$/);
+
+    if (hash === '#/settings') {
+      state.currentView = 'settings';
+      renderSettings();
+    } else if (detailMatch) {
+      const id = decodeURIComponent(detailMatch[1]);
+      sidebar.classList.remove('hidden');
+      fetchDetail(id);
+    } else {
+      state.currentView = 'list';
+      state.detailEntry = null;
+      sidebar.classList.remove('hidden');
+      render();
+    }
+  }
+
+  window.addEventListener('hashchange', handleRoute);
+
+  // ---- Init ----
+  checkQAStatus();
+  fetchAllTopics();
+  fetchConversationList();
+  fetchEntries().then(() => {
+    // After initial load, handle route (might be deep link to detail)
+    handleRoute();
+  });
+
+})();
+</script>
+</body>
+</html>

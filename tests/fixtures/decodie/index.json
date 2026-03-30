@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "project": "secure-api-platform",
+  "entries": [
+    {
+      "id": "entry-1711540000-a1b2",
+      "title": "Bearer token validation must check both format and expiry",
+      "experience_level": "foundational",
+      "topics": ["authentication", "security", "error-handling"],
+      "decision_type": "explanation",
+      "session_id": "2026-03-27-001",
+      "timestamp": "2026-03-27T09:15:00Z",
+      "lifecycle": "active",
+      "references": [
+        {
+          "file": "src/auth.ts",
+          "anchor": "export function validateToken(token: string): boolean",
+          "anchor_hash": "964abbb5"
+        }
+      ],
+      "external_docs": [
+        {
+          "label": "OWASP: Authentication Cheat Sheet",
+          "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+        }
+      ],
+      "cross_references": ["entry-1711540300-c3d4"],
+      "content_file": "sessions/2026-03-27-001.json",
+      "superseded_by": null
+    },
+    {
+      "id": "entry-1711540300-c3d4",
+      "title": "Currency formatting should use Intl.NumberFormat for locale safety",
+      "experience_level": "intermediate",
+      "topics": ["data-structures", "internationalization", "formatting"],
+      "decision_type": "rationale",
+      "session_id": "2026-03-27-001",
+      "timestamp": "2026-03-27T09:20:00Z",
+      "lifecycle": "active",
+      "references": [
+        {
+          "file": "src/utils.ts",
+          "anchor": "export function formatCurrency(amount: number, currency: string = 'USD'): string",
+          "anchor_hash": "bc2d9e1e"
+        }
+      ],
+      "external_docs": [
+        {
+          "label": "MDN: Intl.NumberFormat",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat"
+        }
+      ],
+      "cross_references": [],
+      "content_file": "sessions/2026-03-27-001.json",
+      "superseded_by": null
+    },
+    {
+      "id": "entry-1711540600-e5f6",
+      "title": "Observer pattern decouples event producers from consumers",
+      "experience_level": "advanced",
+      "topics": ["design-patterns", "architecture", "event-driven"],
+      "decision_type": "pattern",
+      "session_id": "2026-03-27-001",
+      "timestamp": "2026-03-27T09:30:00Z",
+      "lifecycle": "active",
+      "references": [
+        {
+          "file": "src/patterns/observer.ts",
+          "anchor": "export function notifySubscribers(event: string, data: unknown): void",
+          "anchor_hash": "6f3b0b3b"
+        }
+      ],
+      "external_docs": [],
+      "cross_references": [],
+      "content_file": "sessions/2026-03-27-001.json",
+      "superseded_by": null
+    },
+    {
+      "id": "entry-1711541000-g7h8",
+      "title": "Legacy React hooks should be migrated to modern patterns",
+      "experience_level": "ecosystem",
+      "topics": ["react", "hooks", "migration"],
+      "decision_type": "convention",
+      "session_id": "2026-03-27-002",
+      "timestamp": "2026-03-27T10:00:00Z",
+      "lifecycle": "archived",
+      "references": [
+        {
+          "file": "src/legacy/old-hooks.ts",
+          "anchor": "export function useLegacyHook(): void",
+          "anchor_hash": "12da50bb"
+        }
+      ],
+      "external_docs": [
+        {
+          "label": "React docs: Hooks Migration",
+          "url": "https://react.dev/blog/2023/03/16/introducing-react-dev"
+        }
+      ],
+      "cross_references": [],
+      "content_file": "sessions/2026-03-27-002.json",
+      "superseded_by": null
+    },
+    {
+      "id": "entry-1711541300-i9j0",
+      "title": "Always sanitize user input before database queries",
+      "experience_level": "foundational",
+      "topics": ["security", "error-handling", "database"],
+      "decision_type": "warning",
+      "session_id": "2026-03-27-002",
+      "timestamp": "2026-03-27T10:15:00Z",
+      "lifecycle": "superseded",
+      "references": [
+        {
+          "file": "src/auth.ts",
+          "anchor": "export function validateToken(token: string): boolean",
+          "anchor_hash": "964abbb5"
+        }
+      ],
+      "external_docs": [],
+      "cross_references": ["entry-1711540000-a1b2"],
+      "content_file": "sessions/2026-03-27-002.json",
+      "superseded_by": "entry-1711540000-a1b2"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "session_id": "2026-03-27-001",
+  "timestamp_start": "2026-03-27T09:00:00Z",
+  "timestamp_end": "2026-03-27T10:00:00Z",
+  "summary": "Covered authentication patterns, currency formatting with Intl API, and observer pattern implementation.",
+  "entries": [
+    {
+      "id": "entry-1711540000-a1b2",
+      "title": "Bearer token validation must check both format and expiry",
+      "code_snippet": "export function validateToken(token: string): boolean {\n  return token.length > 0 && token.startsWith('Bearer ');\n}",
+      "explanation": "Token validation is a critical security boundary. The validateToken function checks that the token is non-empty and begins with the 'Bearer ' prefix, which is the standard format for OAuth 2.0 bearer tokens. In production, this should also verify the JWT signature and check the expiry claim (exp) to prevent use of expired tokens.",
+      "alternatives_considered": "We considered using a regex-based approach to validate the full JWT structure (header.payload.signature), but opted for a simpler prefix check at this layer since full JWT verification happens in the middleware. Another option was to use a third-party library like jose, but the team preferred keeping the auth layer dependency-free.",
+      "key_concepts": [
+        "Bearer token format",
+        "Input validation at trust boundaries",
+        "Defense in depth"
+      ]
+    },
+    {
+      "id": "entry-1711540300-c3d4",
+      "title": "Currency formatting should use Intl.NumberFormat for locale safety",
+      "code_snippet": "export function formatCurrency(amount: number, currency: string = 'USD'): string {\n  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);\n}",
+      "explanation": "Using Intl.NumberFormat ensures correct currency symbol placement, decimal separators, and grouping for the target locale. Hard-coding format strings (e.g., `$${amount.toFixed(2)}`) breaks for non-USD currencies and non-US locales. The Intl API is built into all modern JavaScript runtimes and has zero dependencies.",
+      "alternatives_considered": "Libraries like numeral.js or accounting.js provide similar formatting, but they add bundle weight and are less maintained than the built-in Intl API. For server-side rendering, we confirmed that Node.js includes full ICU data by default since v13.",
+      "key_concepts": [
+        "Intl.NumberFormat",
+        "Locale-aware formatting",
+        "Zero-dependency solutions"
+      ]
+    },
+    {
+      "id": "entry-1711540600-e5f6",
+      "title": "Observer pattern decouples event producers from consumers",
+      "code_snippet": "export function notifySubscribers(event: string, data: unknown): void {\n  // Observer pattern implementation\n  console.log(`Event: ${event}`, data);\n}",
+      "explanation": "The observer pattern allows objects to subscribe to events without the publisher needing to know about subscribers. This decoupling is essential in large applications where tight coupling between modules leads to cascading changes. The notifySubscribers function broadcasts events to all registered listeners.",
+      "alternatives_considered": "We considered using Node.js EventEmitter directly, but a custom implementation gives us more control over error handling and async notification. RxJS was also considered but would be overkill for our simple pub/sub needs.",
+      "key_concepts": [
+        "Observer pattern",
+        "Loose coupling",
+        "Event-driven architecture",
+        "Publish-subscribe"
+      ]
+    }
+  ]
+}

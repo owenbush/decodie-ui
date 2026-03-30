@@ -1,0 +1,34 @@
+{
+  "session_id": "2026-03-27-002",
+  "timestamp_start": "2026-03-27T10:00:00Z",
+  "timestamp_end": "2026-03-27T11:00:00Z",
+  "summary": "Discussed legacy React hook migration patterns and input sanitization for database security.",
+  "entries": [
+    {
+      "id": "entry-1711541000-g7h8",
+      "title": "Legacy React hooks should be migrated to modern patterns",
+      "code_snippet": "// Old pattern\nfunction useLegacyHook() {\n  const [state, setState] = useState(null);\n  useEffect(() => { fetchData().then(setState); }, []);\n  return state;\n}\n\n// New pattern using useSyncExternalStore\nfunction useModernHook() {\n  return useSyncExternalStore(subscribe, getSnapshot);\n}",
+      "explanation": "Legacy custom hooks that combine useState and useEffect for data fetching can cause tearing in concurrent React. The useSyncExternalStore hook was introduced in React 18 to safely read from external stores without tearing. Migrating legacy hooks improves reliability under concurrent features like Suspense and startTransition.",
+      "alternatives_considered": "React Query (TanStack Query) is another migration path that handles caching, deduplication, and background refetching out of the box. For simple cases, the built-in use() hook in React 19+ with Suspense is the most modern approach.",
+      "key_concepts": [
+        "React concurrent mode",
+        "useSyncExternalStore",
+        "Tearing prevention",
+        "Hook migration strategies"
+      ]
+    },
+    {
+      "id": "entry-1711541300-i9j0",
+      "title": "Always sanitize user input before database queries",
+      "code_snippet": "// BAD: SQL injection vulnerability\nconst query = `SELECT * FROM users WHERE id = '${userId}'`;\n\n// GOOD: Parameterized query\nconst query = 'SELECT * FROM users WHERE id = $1';\nawait db.query(query, [userId]);",
+      "explanation": "Directly interpolating user input into SQL queries creates SQL injection vulnerabilities, one of the most common and dangerous web security flaws. Parameterized queries ensure user input is always treated as data, never as executable SQL. This entry has been superseded by the more comprehensive authentication entry which covers the full input validation pipeline.",
+      "alternatives_considered": "ORMs like Prisma or TypeORM provide built-in parameterization. For raw SQL, prepared statements are the standard defense. Input validation alone is insufficient because creative encodings can bypass validation rules.",
+      "key_concepts": [
+        "SQL injection",
+        "Parameterized queries",
+        "Input sanitization",
+        "Defense in depth"
+      ]
+    }
+  ]
+}
