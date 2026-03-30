@@ -63,6 +63,11 @@
     <h3>Topics</h3>
     <div class="topic-chips" id="topicChips"></div>
 
+    <h3>Session</h3>
+    <select class="session-select" id="sessionFilter">
+      <option value="">All sessions</option>
+    </select>
+
     <button class="filter-reset" id="resetFilters">Reset all filters</button>
   </aside>
 
@@ -122,7 +127,9 @@
       levels: [],
       types: [],
       topics: [],
+      session: '',
     },
+    allSessions: [],
     loading: false,
     error: null,
     currentView: 'list',   // 'list' or 'detail'
@@ -255,6 +262,44 @@
     }
     state.allTopics = Array.from(set).sort();
     renderTopicChips();
+
+    // Build sessions list
+    var sessionMap = {};
+    for (var i = 0; i < entries.length; i++) {
+      var sid = entries[i].session_id;
+      if (sid && !sessionMap[sid]) {
+        sessionMap[sid] = { id: sid, count: 0 };
+      }
+      if (sid) sessionMap[sid].count++;
+    }
+    state.allSessions = Object.values(sessionMap).sort(function(a, b) {
+      return b.id.localeCompare(a.id);
+    });
+    renderSessionFilter();
+  }
+
+  function formatSessionLabel(sessionId) {
+    // Session IDs are YYYY-MM-DD-NNN
+    var parts = sessionId.match(/^(\d{4})-(\d{2})-(\d{2})-(\d+)$/);
+    if (!parts) return sessionId;
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var month = months[parseInt(parts[2], 10) - 1] || parts[2];
+    var day = parseInt(parts[3], 10);
+    var seq = parseInt(parts[4], 10);
+    return month + ' ' + day + ', ' + parts[1] + ' (#' + seq + ')';
+  }
+
+  function renderSessionFilter() {
+    var select = $('#sessionFilter');
+    if (!select) return;
+    var html = '<option value="">All sessions</option>';
+    for (var i = 0; i < state.allSessions.length; i++) {
+      var s = state.allSessions[i];
+      var label = formatSessionLabel(s.id) + ' (' + s.count + ')';
+      var selected = state.filters.session === s.id ? ' selected' : '';
+      html += '<option value="' + escapeHtml(s.id) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+    }
+    select.innerHTML = html;
   }
 
   async function fetchDetail(id) {
@@ -321,6 +366,9 @@
     }
     if (f.topics.length > 0) {
       list = list.filter((e) => e.topics && f.topics.some((t) => e.topics.includes(t)));
+    }
+    if (f.session) {
+      list = list.filter((e) => e.session_id === f.session);
     }
 
     // Sort: pinned first, then by timestamp descending
@@ -773,15 +821,22 @@
     });
   });
 
+  // Session filter
+  $('#sessionFilter').addEventListener('change', function() {
+    state.filters.session = this.value;
+    render();
+  });
+
   // Reset filters
   $('#resetFilters').addEventListener('click', () => {
-    state.filters = { search: '', lifecycle: 'active', levels: [], types: [], topics: [] };
+    state.filters = { search: '', lifecycle: 'active', levels: [], types: [], topics: [], session: '' };
     searchInput.value = '';
     $$('#levelFilters input:checked').forEach((c) => { c.checked = false; });
     $$('#typeFilters input:checked').forEach((c) => { c.checked = false; });
     lifecycleTabs.forEach((t) => t.classList.remove('active'));
     lifecycleTabs[0].classList.add('active');
     renderTopicChips();
+    renderSessionFilter();
     fetchEntries();
   });
 
@@ -1392,8 +1447,18 @@
   }
 
   function restoreFilterSidebar() {
+    if (!sidebar.classList.contains('lesson-sidebar')) return;
     sidebar.innerHTML = sidebarOriginalHTML;
     sidebar.classList.remove('lesson-sidebar');
+    // Re-attach session filter listener (lost when innerHTML was replaced)
+    var sessionSelect = $('#sessionFilter');
+    if (sessionSelect) {
+      sessionSelect.addEventListener('change', function() {
+        state.filters.session = this.value;
+        render();
+      });
+      renderSessionFilter();
+    }
   }
 
   function renderLessonSidebar(lessonDetail, activeEntryId) {

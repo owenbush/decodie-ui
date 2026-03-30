@@ -151,6 +151,24 @@ button {
   box-shadow: 0 0 0 2px var(--primary-glow);
 }
 
+/* Session filter */
+.session-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+.session-select:focus {
+  border-color: var(--primary);
+}
+
 /* Lifecycle tabs */
 .lifecycle-tabs {
   display: flex;
