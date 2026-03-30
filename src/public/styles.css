@@ -1355,6 +1355,41 @@ code[class*="language-"] {
   color: var(--text);
 }
 
+/* === Learned indicator === */
+.learned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+}
+
+/* Learned button */
+.btn-learned {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-light);
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-learned:hover {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+.btn-learned.is-learned {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
 /* === Utility === */
 .hidden { display: none !important; }
 .sr-only {

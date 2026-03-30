@@ -59,7 +59,7 @@ export interface Config {
   archival_threshold_days: number;
   auto_suggest_archival: boolean;
   show_external_docs: boolean;
-  default_view: 'all' | 'active' | 'session';
+  default_view: 'all' | 'active' | 'session' | 'lessons';
   sessions_visible_by_default: number;
   api_key: string | null;
   api_model: string | null;
@@ -96,4 +96,51 @@ export interface ProgressEntry {
 
 export interface ProgressData {
   learned_entries: Record<string, ProgressEntry>;
+}
+
+export interface LessonEntry {
+  entry_id: string;
+  order: number;
+  note: string | null;
+}
+
+export interface CustomLesson {
+  id: string;
+  title: string;
+  description: string | null;
+  entries: LessonEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LessonsFile {
+  lessons: CustomLesson[];
+}
+
+export interface LessonSummary {
+  id: string;
+  title: string;
+  type: 'auto' | 'custom';
+  topic?: string;
+  entry_count: number;
+  learned_count: number;
+  total_count: number;
+}
+
+export interface LessonDetailEntry {
+  entry: IndexEntry;
+  order: number;
+  note: string | null;
+  learned: boolean;
+  missing?: boolean;
+}
+
+export interface LessonDetail {
+  id: string;
+  title: string;
+  type: 'auto' | 'custom';
+  description: string | null;
+  entries: LessonDetailEntry[];
+  learned_count: number;
+  total_count: number;
 }

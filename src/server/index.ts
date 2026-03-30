@@ -3,11 +3,13 @@ import * as path from 'path';
 import * as chokidar from 'chokidar';
 import { DataParser } from '../data/parser';
 import { ProgressStore } from '../data/progress-store';
+import { LessonService } from '../data/lesson-service';
 import { createEntriesRouter } from './routes/entries';
 import { createConfigRouter } from './routes/config';
 import { createQARouter } from './routes/qa';
 import { createConversationsRouter } from './routes/conversations';
 import { createProgressRouter } from './routes/progress';
+import { createLessonsRouter } from './routes/lessons';
 
 export interface ServerOptions {
   port: number;
@@ -18,10 +20,12 @@ export function createApp(projectDir: string): {
   app: express.Application;
   parser: DataParser;
   progressStore: ProgressStore;
+  lessonService: LessonService;
 } {
   const app = express();
   const parser = new DataParser(projectDir);
   const progressStore = new ProgressStore(projectDir);
+  const lessonService = new LessonService(parser, progressStore, projectDir);
 
   // Parse JSON request bodies
   app.use(express.json());
@@ -36,18 +40,19 @@ export function createApp(projectDir: string): {
   app.use(createQARouter(parser, projectDir));
   app.use('/api/conversations', createConversationsRouter(projectDir));
   app.use('/api/progress', createProgressRouter(progressStore));
+  app.use('/api/lessons', createLessonsRouter(lessonService));
 
   // Fallback to index.html for SPA routing
   app.get('*', (_req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
   });
 
-  return { app, parser, progressStore };
+  return { app, parser, progressStore, lessonService };
 }
 
 export function startServer(options: ServerOptions): void {
   const { port, projectDir } = options;
-  const { app, parser, progressStore } = createApp(projectDir);
+  const { app, parser, progressStore, lessonService } = createApp(projectDir);
 
   // Watch .decodie/ directory for changes and invalidate cache
   const decodieDir = path.join(projectDir, '.decodie');
@@ -61,6 +66,7 @@ export function startServer(options: ServerOptions): void {
     if (filePath.endsWith('.json')) {
       parser.invalidateCache();
       progressStore.invalidateCache();
+      lessonService.invalidateCache();
       console.log(`[watcher] ${event}: ${path.relative(projectDir, filePath)} — cache invalidated`);
     }
   });

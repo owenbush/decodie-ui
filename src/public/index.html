@@ -131,6 +131,7 @@
     qaStreaming: false,
     conversationEntryIds: [],
     qaConversationCreatedAt: null,
+    learnedEntries: {},
   };
 
   // ---- DOM refs ----
@@ -361,6 +362,9 @@
       if (state.conversationEntryIds.includes(e.id)) {
         html += '<span class="conversation-indicator" title="Has Q&amp;A conversation">&#128172;</span>';
       }
+      if (state.learnedEntries[e.id]) {
+        html += '<span class="learned-badge">&#10003; Learned</span>';
+      }
       html += '<div class="entry-card-ref-dots">';
       if (worst) {
         html += '<span class="ref-dot ref-dot-' + worst + '" title="Reference: ' + worst + '"></span>';
@@ -528,8 +532,12 @@
 
     // Actions
     html += '<div class="detail-actions">';
+    const isLearned = !!state.learnedEntries[e.id];
+    html += '<button class="btn-learned btn-sm' + (isLearned ? ' is-learned' : '') + '" id="learnedBtn">';
+    html += isLearned ? '&#10003; Learned' : 'Mark as Learned';
+    html += '</button>';
     if (e.lifecycle !== 'archived') {
-      html += '<button class="btn-danger btn-sm" id="archiveBtn">Mark as Learned</button>';
+      html += '<button class="btn-outline btn-sm" id="archiveBtn">Archive</button>';
     }
     if (e.pinned) {
       html += '<button class="btn-outline btn-sm" id="pinBtn">Unpin</button>';
@@ -561,12 +569,31 @@
   }
 
   function attachDetailActions(entry) {
+    const learnedBtn = $('#learnedBtn');
+    if (learnedBtn) {
+      learnedBtn.addEventListener('click', async () => {
+        const isLearned = !!state.learnedEntries[entry.id];
+        const method = isLearned ? 'DELETE' : 'POST';
+        try {
+          await fetch('/api/progress/' + encodeURIComponent(entry.id) + '/learn', { method: method });
+          if (isLearned) {
+            delete state.learnedEntries[entry.id];
+          } else {
+            state.learnedEntries[entry.id] = { learned_at: new Date().toISOString() };
+          }
+          renderDetail();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      });
+    }
+
     const archiveBtn = $('#archiveBtn');
     if (archiveBtn) {
       archiveBtn.addEventListener('click', async () => {
         const ok = await showConfirm(
-          'Mark as Learned',
-          'This will archive "' + entry.title + '". You can find it later under the Archived tab.'
+          'Archive Entry',
+          'Archive "' + entry.title + '"? It will move to the Archived tab.'
         );
         if (!ok) return;
         try {
@@ -578,7 +605,7 @@
         } catch (e) {
           alert('Error: ' + e.message);
           archiveBtn.disabled = false;
-          archiveBtn.textContent = 'Mark as Learned';
+          archiveBtn.textContent = 'Archive';
         }
       });
     }
@@ -1122,6 +1149,18 @@
   checkQAStatus();
   fetchAllTopics();
   fetchConversationList();
+
+  // Load progress data
+  fetch('/api/progress')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      state.learnedEntries = data.learned_entries || {};
+      render();
+    })
+    .catch(function () {
+      state.learnedEntries = {};
+    });
+
   fetchEntries().then(() => {
     // After initial load, handle route (might be deep link to detail)
     handleRoute();
