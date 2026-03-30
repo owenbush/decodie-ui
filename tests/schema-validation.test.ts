@@ -4,7 +4,7 @@ import addFormats from 'ajv-formats';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const schemaDir = path.resolve(__dirname, '../../decodie-skill/schema');
+const schemaDir = path.resolve(__dirname, './fixtures/schema');
 const fixtureDir = path.resolve(__dirname, './fixtures/decodie');
 
 function loadJSON(filePath: string): unknown {

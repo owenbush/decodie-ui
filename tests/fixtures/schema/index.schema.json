@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/decodie/schema/index.schema.json",
+  "title": "Decodie Index",
+  "description": "Schema for .decodie/index.json — the central index of all learning entries.",
+  "type": "object",
+  "required": ["version", "project", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version identifier.",
+      "examples": ["1.0"]
+    },
+    "project": {
+      "type": "string",
+      "description": "Name of the project this learning directory belongs to."
+    },
+    "entries": {
+      "type": "array",
+      "description": "All learning entries tracked by this index.",
+      "items": {
+        "$ref": "#/definitions/entry"
+      }
+    }
+  },
+  "definitions": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "experience_level",
+        "topics",
+        "decision_type",
+        "session_id",
+        "timestamp",
+        "lifecycle",
+        "references",
+        "external_docs",
+        "cross_references",
+        "content_file",
+        "superseded_by"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this entry.",
+          "examples": ["entry-1711540000-a1b2"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable title summarizing the learning."
+        },
+        "experience_level": {
+          "type": "string",
+          "enum": ["foundational", "intermediate", "advanced", "ecosystem"],
+          "description": "The experience tier this entry targets."
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "description": "Lowercase kebab-case topic tags."
+        },
+        "decision_type": {
+          "type": "string",
+          "enum": ["explanation", "rationale", "pattern", "warning", "convention"],
+          "description": "What kind of learning this entry represents."
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}-\\d{3}$",
+          "description": "The session that produced this entry (YYYY-MM-DD-NNN)."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the entry was created."
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["active", "archived", "superseded"],
+          "description": "Current lifecycle state of the entry."
+        },
+        "references": {
+          "type": "array",
+          "description": "Source-code locations this entry references.",
+          "items": {
+            "$ref": "#/definitions/reference"
+          }
+        },
+        "external_docs": {
+          "type": "array",
+          "description": "Links to external documentation or resources.",
+          "items": {
+            "$ref": "#/definitions/external_doc"
+          }
+        },
+        "cross_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "IDs of related learning entries."
+        },
+        "content_file": {
+          "type": "string",
+          "description": "Relative path to the Markdown file containing the full entry content."
+        },
+        "superseded_by": {
+          "type": ["string", "null"],
+          "description": "ID of the entry that replaced this one, or null if still current."
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": ["file", "anchor", "anchor_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Relative path to the referenced source file."
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Human-readable anchor (e.g., function name, line content)."
+        },
+        "anchor_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}$",
+          "description": "First 8 hex characters of the SHA-256 hash of the anchor content."
+        }
+      }
+    },
+    "external_doc": {
+      "type": "object",
+      "required": ["label", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Display label for the link."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the external resource."
+        }
+      }
+    }
+  }
+}

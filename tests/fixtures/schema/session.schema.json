@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/decodie/schema/session.schema.json",
+  "title": "Decodie Session",
+  "description": "Schema for .decodie/sessions/YYYY-MM-DD-NNN.json — a single coding session's learning entries.",
+  "type": "object",
+  "required": ["session_id", "timestamp_start", "timestamp_end", "summary", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}-\\d{3}$",
+      "description": "Unique session identifier (YYYY-MM-DD-NNN)."
+    },
+    "timestamp_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the session began."
+    },
+    "timestamp_end": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the session ended, or null if still in progress."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of what was covered in this session."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Learning entries captured during this session.",
+      "items": {
+        "$ref": "#/definitions/session_entry"
+      }
+    }
+  },
+  "definitions": {
+    "session_entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "code_snippet",
+        "explanation",
+        "alternatives_considered",
+        "key_concepts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Entry ID matching the corresponding index entry."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short title for the learning."
+        },
+        "code_snippet": {
+          "type": "string",
+          "description": "Relevant code snippet that prompted or illustrates the learning."
+        },
+        "explanation": {
+          "type": "string",
+          "description": "Detailed explanation of the concept, decision, or pattern."
+        },
+        "alternatives_considered": {
+          "type": "string",
+          "description": "Other approaches that were considered and why this one was chosen."
+        },
+        "key_concepts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Core concepts the reader should take away."
+        }
+      }
+    }
+  }
+}
