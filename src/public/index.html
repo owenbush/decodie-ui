@@ -155,6 +155,7 @@
   const projectNameEl = $('#projectName');
   const sidebarToggle = $('#sidebarToggle');
   const sidebar = $('#sidebar');
+  const sidebarOriginalHTML = sidebar.innerHTML;
   const backdrop = $('#sidebarBackdrop');
   const confirmOverlay = $('#confirmOverlay');
 
@@ -1232,7 +1233,11 @@
     attachLessonBackBtn();
 
     try {
-      var resp = await fetch('/api/lessons/' + encodeURIComponent(lessonId));
+      var results = await Promise.all([
+        fetch('/api/lessons/' + encodeURIComponent(lessonId)),
+        fetchLessons()
+      ]);
+      var resp = results[0];
       if (!resp.ok) throw new Error('Lesson not found');
       state.lessonDetail = await resp.json();
     } catch (e) {
@@ -1328,6 +1333,9 @@
     mainEl.innerHTML = html;
     attachLessonBackBtn();
 
+    // Render lesson outline in sidebar
+    renderLessonSidebar(lesson, null);
+
     // Attach start/continue button
     var startBtn = document.getElementById('lessonStartBtn');
     if (startBtn) {
@@ -1379,6 +1387,78 @@
         window.location.hash = '#/lessons';
       });
     }
+  }
+
+  function restoreFilterSidebar() {
+    sidebar.innerHTML = sidebarOriginalHTML;
+    sidebar.classList.remove('lesson-sidebar');
+  }
+
+  function renderLessonSidebar(lessonDetail, activeEntryId) {
+    if (!lessonDetail) return;
+
+    var html = '';
+
+    // Lesson title
+    html += '<h3 class="lesson-sidebar-title">' + escapeHtml(lessonDetail.title) + '</h3>';
+
+    // Progress
+    var pct = lessonDetail.total_count > 0 ? Math.round((lessonDetail.learned_count / lessonDetail.total_count) * 100) : 0;
+    html += '<div class="lesson-sidebar-progress">';
+    html += '<div class="lesson-progress"><div class="lesson-progress-fill" style="width:' + pct + '%"></div></div>';
+    html += '<span class="lesson-sidebar-progress-text">' + lessonDetail.learned_count + ' / ' + lessonDetail.total_count + ' learned</span>';
+    html += '</div>';
+
+    // Entry outline
+    html += '<div class="lesson-sidebar-entries">';
+    if (lessonDetail.entries) {
+      for (var i = 0; i < lessonDetail.entries.length; i++) {
+        var item = lessonDetail.entries[i];
+        var entry = item.entry || {};
+        var isActive = entry.id === activeEntryId;
+        var isMissing = !!item.missing;
+        var cls = 'lesson-sidebar-entry';
+        if (isActive) cls += ' is-active';
+        if (isMissing) cls += ' is-missing';
+        if (item.learned) cls += ' is-learned';
+
+        html += '<a class="' + cls + '" href="#/lessons/' + encodeURIComponent(lessonDetail.id) + '/entries/' + encodeURIComponent(entry.id) + '">';
+        html += '<span class="lesson-sidebar-entry-num">' + (i + 1) + '</span>';
+        html += '<span class="lesson-sidebar-entry-title">' + escapeHtml(entry.title || 'Unknown') + '</span>';
+        if (item.learned) {
+          html += '<span class="lesson-sidebar-entry-check">&#10003;</span>';
+        }
+        html += '</a>';
+      }
+    }
+    html += '</div>';
+
+    // Prev/Next lesson links
+    if (state.lessons && state.lessons.length > 1) {
+      var currentIdx = -1;
+      for (var j = 0; j < state.lessons.length; j++) {
+        if (state.lessons[j].id === lessonDetail.id) {
+          currentIdx = j;
+          break;
+        }
+      }
+
+      if (currentIdx >= 0) {
+        html += '<div class="lesson-sidebar-nav">';
+        if (currentIdx > 0) {
+          var prevLesson = state.lessons[currentIdx - 1];
+          html += '<a class="lesson-sidebar-nav-link" href="#/lessons/' + encodeURIComponent(prevLesson.id) + '">&larr; ' + escapeHtml(prevLesson.title) + '</a>';
+        }
+        if (currentIdx < state.lessons.length - 1) {
+          var nextLesson = state.lessons[currentIdx + 1];
+          html += '<a class="lesson-sidebar-nav-link lesson-sidebar-nav-next" href="#/lessons/' + encodeURIComponent(nextLesson.id) + '">' + escapeHtml(nextLesson.title) + ' &rarr;</a>';
+        }
+        html += '</div>';
+      }
+    }
+
+    sidebar.innerHTML = html;
+    sidebar.classList.add('lesson-sidebar');
   }
 
   // ---- Lesson Create/Edit Modal ----
@@ -1727,9 +1807,11 @@
       state.currentMode = 'entries';
       state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
+      restoreFilterSidebar();
       renderSettings();
     } else if (hash === '#/lessons') {
       state.lessonContext = null;
+      restoreFilterSidebar();
       renderLessonList();
     } else if (lessonEntryMatch) {
       var lessonId = decodeURIComponent(lessonEntryMatch[1]);
@@ -1760,6 +1842,11 @@
         state.currentMode = 'lessons';
         document.querySelector('.app-layout').classList.add('lessons-mode');
         updateViewSwitcher('lessons');
+
+        // Render lesson outline in sidebar with active entry highlighted
+        await fetchLessons();
+        renderLessonSidebar(state.lessonDetail, entryId);
+
         fetchDetail(entryId);
       })();
     } else if (lessonDetailMatch) {
@@ -1771,6 +1858,7 @@
       state.currentMode = 'entries';
       state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
+      restoreFilterSidebar();
       sidebar.classList.remove('hidden');
       updateViewSwitcher('entries');
       fetchDetail(id);
@@ -1780,6 +1868,7 @@
       state.detailEntry = null;
       state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
+      restoreFilterSidebar();
       sidebar.classList.remove('hidden');
       updateViewSwitcher('entries');
       render();
