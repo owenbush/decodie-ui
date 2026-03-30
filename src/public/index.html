@@ -141,6 +141,7 @@
     lessonDetail: null,
     lessonDetailLoading: false,
     lessonDetailError: null,
+    lessonContext: null,  // { lessonId, lessonTitle, entries: [{ entry_id, order }], currentIndex }
   };
 
   // ---- DOM refs ----
@@ -426,7 +427,19 @@
     if (!e) return;
 
     let html = '<div class="detail-view">';
-    html += '<button class="back-btn" id="backBtn">&larr; Back to list</button>';
+    html += '<button class="back-btn" id="backBtn">&larr; ' + (state.lessonContext ? 'Back to lesson' : 'Back to list') + '</button>';
+
+    if (state.lessonContext) {
+      var ctx = state.lessonContext;
+      var pos = ctx.currentIndex + 1;
+      var total = ctx.entries.length;
+
+      html += '<div class="lesson-nav-bar">';
+      html += '<button class="lesson-nav-btn" id="lessonPrevBtn"' + (pos === 1 ? ' disabled' : '') + '>&larr; Previous</button>';
+      html += '<span class="lesson-nav-position">Entry ' + pos + ' of ' + total + ' in <strong>' + escapeHtml(ctx.lessonTitle) + '</strong></span>';
+      html += '<button class="lesson-nav-btn" id="lessonNextBtn"' + (pos === total ? ' disabled' : '') + '>Next &rarr;</button>';
+      html += '</div>';
+    }
 
     // Header
     html += '<div class="detail-header">';
@@ -572,7 +585,30 @@
     const btn = $('#backBtn');
     if (btn) {
       btn.addEventListener('click', () => {
-        window.location.hash = '#/';
+        if (state.lessonContext) {
+          window.location.hash = '#/lessons/' + state.lessonContext.lessonId;
+          state.lessonContext = null;
+        } else {
+          window.location.hash = '#/';
+        }
+      });
+    }
+
+    // Lesson nav prev/next buttons
+    var prevBtn = $('#lessonPrevBtn');
+    if (prevBtn && !prevBtn.disabled) {
+      prevBtn.addEventListener('click', function() {
+        var ctx = state.lessonContext;
+        var prevEntry = ctx.entries[ctx.currentIndex - 1];
+        window.location.hash = '#/lessons/' + ctx.lessonId + '/entries/' + prevEntry.entry_id;
+      });
+    }
+    var nextBtn = $('#lessonNextBtn');
+    if (nextBtn && !nextBtn.disabled) {
+      nextBtn.addEventListener('click', function() {
+        var ctx = state.lessonContext;
+        var nextEntry = ctx.entries[ctx.currentIndex + 1];
+        window.location.hash = '#/lessons/' + ctx.lessonId + '/entries/' + nextEntry.entry_id;
       });
     }
   }
@@ -589,6 +625,22 @@
             delete state.learnedEntries[entry.id];
           } else {
             state.learnedEntries[entry.id] = { learned_at: new Date().toISOString() };
+          }
+          // Update cached lessonDetail if in lesson context
+          if (state.lessonContext && state.lessonDetail && state.lessonDetail.entries) {
+            var newLearned = !isLearned;
+            for (var li = 0; li < state.lessonDetail.entries.length; li++) {
+              if (state.lessonDetail.entries[li].entry && state.lessonDetail.entries[li].entry.id === entry.id) {
+                state.lessonDetail.entries[li].learned = newLearned;
+                break;
+              }
+            }
+            // Recompute learned_count
+            var count = 0;
+            for (var lj = 0; lj < state.lessonDetail.entries.length; lj++) {
+              if (state.lessonDetail.entries[lj].learned) count++;
+            }
+            state.lessonDetail.learned_count = count;
           }
           renderDetail();
         } catch (err) {
@@ -1281,7 +1333,7 @@
     if (startBtn) {
       startBtn.addEventListener('click', function() {
         var entryId = startBtn.getAttribute('data-entry-id');
-        window.location.hash = '#/entry/' + encodeURIComponent(entryId);
+        window.location.hash = '#/lessons/' + encodeURIComponent(lessonId) + '/entries/' + encodeURIComponent(entryId);
       });
     }
 
@@ -1290,7 +1342,7 @@
       el.addEventListener('click', function() {
         var entryId = el.getAttribute('data-entry-id');
         if (entryId) {
-          window.location.hash = '#/entry/' + encodeURIComponent(entryId);
+          window.location.hash = '#/lessons/' + encodeURIComponent(lessonId) + '/entries/' + encodeURIComponent(entryId);
         }
       });
     });
@@ -1667,21 +1719,57 @@
   function handleRoute() {
     const hash = window.location.hash || '#/';
     const detailMatch = hash.match(/^#\/entry\/(.+)$/);
-    const lessonDetailMatch = hash.match(/^#\/lessons\/(.+)$/);
+    const lessonEntryMatch = hash.match(/^#\/lessons\/([^/]+)\/entries\/([^/]+)$/);
+    const lessonDetailMatch = hash.match(/^#\/lessons\/([^/]+)$/);
 
     if (hash === '#/settings') {
       state.currentView = 'settings';
       state.currentMode = 'entries';
+      state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
       renderSettings();
     } else if (hash === '#/lessons') {
+      state.lessonContext = null;
       renderLessonList();
+    } else if (lessonEntryMatch) {
+      var lessonId = decodeURIComponent(lessonEntryMatch[1]);
+      var entryId = decodeURIComponent(lessonEntryMatch[2]);
+
+      // Set up lesson context then fetch entry detail
+      (async function() {
+        // Use cached lessonDetail if it matches, otherwise fetch
+        if (!state.lessonDetail || state.lessonDetail.id !== lessonId) {
+          try {
+            var resp = await fetch('/api/lessons/' + encodeURIComponent(lessonId));
+            if (!resp.ok) throw new Error('Lesson not found');
+            state.lessonDetail = await resp.json();
+          } catch (e) {
+            state.lessonDetail = null;
+          }
+        }
+
+        if (state.lessonDetail && state.lessonDetail.entries) {
+          state.lessonContext = {
+            lessonId: lessonId,
+            lessonTitle: state.lessonDetail.title,
+            entries: state.lessonDetail.entries.map(function(e) { return { entry_id: e.entry.id, order: e.order }; }),
+            currentIndex: state.lessonDetail.entries.findIndex(function(e) { return e.entry.id === entryId; })
+          };
+        }
+
+        state.currentMode = 'lessons';
+        document.querySelector('.app-layout').classList.add('lessons-mode');
+        updateViewSwitcher('lessons');
+        fetchDetail(entryId);
+      })();
     } else if (lessonDetailMatch) {
-      var lessonId = decodeURIComponent(lessonDetailMatch[1]);
-      renderLessonDetail(lessonId);
+      state.lessonContext = null;
+      var lessonId2 = decodeURIComponent(lessonDetailMatch[1]);
+      renderLessonDetail(lessonId2);
     } else if (detailMatch) {
       const id = decodeURIComponent(detailMatch[1]);
       state.currentMode = 'entries';
+      state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
       sidebar.classList.remove('hidden');
       updateViewSwitcher('entries');
@@ -1690,6 +1778,7 @@
       state.currentView = 'list';
       state.currentMode = 'entries';
       state.detailEntry = null;
+      state.lessonContext = null;
       document.querySelector('.app-layout').classList.remove('lessons-mode');
       sidebar.classList.remove('hidden');
       updateViewSwitcher('entries');
