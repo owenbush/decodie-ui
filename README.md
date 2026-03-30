@@ -1,4 +1,4 @@
-![Decodie](https://raw.githubusercontent.com/owenbush/decodie/main/assets/decodie-logo.png)
+<p align="center"><img src="assets/decodie-logo.png" alt="Decodie" width="200"></p>
 
 # Decodie UI
 
