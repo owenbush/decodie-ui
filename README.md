@@ -29,6 +29,20 @@ npx @owenbush/decodie-ui serve --dir /path/to/project
 
 This starts the server pointing at a project directory that contains a `.decodie/` folder. Open `http://localhost:8081`.
 
+## Install the Skill
+
+The Decodie skill for Claude Code can be installed with a single command:
+
+```bash
+npx @owenbush/decodie-ui install-skill
+```
+
+This downloads `SKILL.md` and scripts from the [decodie-skill](https://github.com/owenbush/decodie-skill) repo into `~/.claude/skills/decodie/`. To install at project level instead (shared with your team):
+
+```bash
+npx @owenbush/decodie-ui install-skill --scope project
+```
+
 ## Development
 
 ```bash
