@@ -49,10 +49,10 @@ program
 
 program
   .command('install-skill')
-  .description('Install the Decodie skill for Claude Code')
+  .description('Install the Decodie commands for Claude Code')
   .option(
     '--scope <scope>',
-    'Install scope: "personal" (~/.claude/skills) or "project" (.claude/skills)',
+    'Install scope: "personal" (~/.claude/commands) or "project" (.claude/commands)',
     'personal'
   )
   .option(
@@ -62,51 +62,46 @@ program
   )
   .action(async (opts) => {
     const scope = opts.scope;
-    let skillDir: string;
+    let commandsBase: string;
 
     if (scope === 'project') {
-      skillDir = path.join(path.resolve(opts.dir), '.claude', 'skills', 'decodie');
+      commandsBase = path.join(path.resolve(opts.dir), '.claude', 'commands', 'decodie');
     } else {
-      skillDir = path.join(os.homedir(), '.claude', 'skills', 'decodie');
+      commandsBase = path.join(os.homedir(), '.claude', 'commands', 'decodie');
     }
 
-    const scriptsDir = path.join(skillDir, 'scripts');
     const repo = 'owenbush/decodie-skill';
     const branch = 'main';
     const baseUrl = `https://raw.githubusercontent.com/${repo}/${branch}`;
 
     const files = [
-      { remote: 'SKILL.md', local: path.join(skillDir, 'SKILL.md') },
-      { remote: 'SKILL-ANALYZE.md', local: path.join(skillDir, 'SKILL-ANALYZE.md') },
-      { remote: 'scripts/summarize-index.sh', local: path.join(scriptsDir, 'summarize-index.sh') },
+      { remote: 'commands/decodie/observe.md', local: path.join(commandsBase, 'observe.md') },
+      { remote: 'commands/decodie/analyze.md', local: path.join(commandsBase, 'analyze.md') },
+      { remote: 'commands/decodie/ask.md', local: path.join(commandsBase, 'ask.md') },
     ];
 
-    console.log(`Installing Decodie skill (${scope})...`);
-    console.log(`Target: ${skillDir}`);
+    console.log(`Installing Decodie commands (${scope})...`);
+    console.log(`Target: ${commandsBase}`);
 
-    fs.mkdirSync(scriptsDir, { recursive: true });
+    fs.mkdirSync(commandsBase, { recursive: true });
 
     for (const file of files) {
       const url = `${baseUrl}/${file.remote}`;
       try {
         await downloadFile(url, file.local);
-        console.log(`  ✓ ${file.remote}`);
+        console.log(`  ✓ ${path.basename(file.remote)}`);
       } catch (err) {
-        console.error(`  ✗ ${file.remote}: ${(err as Error).message}`);
+        console.error(`  ✗ ${path.basename(file.remote)}: ${(err as Error).message}`);
         process.exit(1);
       }
     }
 
-    // Make scripts executable
-    try {
-      fs.chmodSync(path.join(scriptsDir, 'summarize-index.sh'), 0o755);
-    } catch {
-      // Windows doesn't support chmod — that's fine
-    }
-
-    console.log('\nDone! The Decodie skill is now available in Claude Code.');
+    console.log('\nDone! Decodie commands are now available in Claude Code:');
+    console.log('  /decodie:observe  — Document decisions as you code');
+    console.log('  /decodie:analyze  — Analyze existing code');
+    console.log('  /decodie:ask      — Ask questions about entries');
     if (scope === 'project') {
-      console.log('Commit .claude/skills/decodie/ to share it with your team.');
+      console.log('\nCommit .claude/commands/decodie/ to share with your team.');
     }
   });
 
