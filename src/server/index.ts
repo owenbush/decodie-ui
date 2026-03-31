@@ -31,7 +31,12 @@ export function createApp(projectDir: string): {
   app.use(express.json());
 
   // Serve static files from the public directory
-  const publicDir = path.join(__dirname, '..', 'public');
+  // When running compiled (dist/server/), resolve up to package root then into src/public
+  // When running from source (src/server/), ../public resolves to src/public directly
+  let publicDir = path.join(__dirname, '..', 'public');
+  if (!require('fs').existsSync(publicDir)) {
+    publicDir = path.join(__dirname, '..', '..', 'src', 'public');
+  }
   app.use(express.static(publicDir));
 
   // Mount API routes
