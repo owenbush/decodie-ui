@@ -77,6 +77,7 @@ program
 
     const files = [
       { remote: 'SKILL.md', local: path.join(skillDir, 'SKILL.md') },
+      { remote: 'SKILL-ANALYZE.md', local: path.join(skillDir, 'SKILL-ANALYZE.md') },
       { remote: 'scripts/summarize-index.sh', local: path.join(scriptsDir, 'summarize-index.sh') },
     ];
 
