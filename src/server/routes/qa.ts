@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DataParser } from '../../data/parser';
+import { DataParser } from '@owenbush/decodie-core';
 
 interface QAAuth {
   method: 'oauth-token' | 'api-key';

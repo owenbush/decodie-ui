@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { DataParser } from './parser';
+import { DataParser } from '@owenbush/decodie-core';
 import { ProgressStore } from './progress-store';
 import {
   CustomLesson,
@@ -11,7 +11,7 @@ import {
   LessonDetailEntry,
   LessonEntry,
   IndexEntry,
-} from './types';
+} from '@owenbush/decodie-core';
 
 const LEVEL_ORDER: Record<string, number> = {
   foundational: 0,

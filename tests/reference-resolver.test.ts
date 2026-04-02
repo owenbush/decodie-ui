@@ -1,7 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import * as path from 'path';
-import { resolveReference } from '../src/data/reference-resolver';
-import { Reference } from '../src/data/types';
+import { resolveReference, Reference } from '@owenbush/decodie-core';
 
 const mockProjectRoot = path.resolve(__dirname, './fixtures/mock-project');
 

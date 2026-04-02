@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { DataParser } from '../../data/parser';
+import { DataParser } from '@owenbush/decodie-core';
 
 export function createConfigRouter(parser: DataParser): Router {
   const router = Router();
