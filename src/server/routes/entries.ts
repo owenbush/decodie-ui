@@ -1,7 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { DataParser } from '../../data/parser';
-import { resolveAllReferences, resolveReference } from '../../data/reference-resolver';
-import { IndexEntry, IndexEntryWithResolution } from '../../data/types';
+import { DataParser, resolveAllReferences, resolveReference, IndexEntry, IndexEntryWithResolution } from '@owenbush/decodie-core';
 
 export function createEntriesRouter(parser: DataParser, projectRoot: string): Router {
   const router = Router();

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProgressData, ProgressEntry } from './types';
+import { ProgressData, ProgressEntry } from '@owenbush/decodie-core';
 
 export class ProgressStore {
   private projectDir: string;

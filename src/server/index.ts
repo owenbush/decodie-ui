@@ -1,7 +1,7 @@
 import express from 'express';
 import * as path from 'path';
 import * as chokidar from 'chokidar';
-import { DataParser } from '../data/parser';
+import { DataParser } from '@owenbush/decodie-core';
 import { ProgressStore } from '../data/progress-store';
 import { LessonService } from '../data/lesson-service';
 import { createEntriesRouter } from './routes/entries';
