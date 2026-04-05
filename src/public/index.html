@@ -536,6 +536,33 @@
       html += '</div>';
     }
 
+    // Breakdowns
+    if (e.breakdowns && e.breakdowns.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Breakdown</div>';
+      for (var bi = 0; bi < e.breakdowns.length; bi++) {
+        var bd = e.breakdowns[bi];
+        var bdLang = detectLanguage(bd.code_excerpt || '');
+        html += '<details class="collapsible-section breakdown-item"' + (bi === 0 ? ' open' : '') + '>';
+        html += '<summary>';
+        html += '<span class="breakdown-summary-label">Step ' + (bi + 1) + '</span>';
+        if (bd.pattern) {
+          html += '<span class="breakdown-pattern-badge">' + escapeHtml(bd.pattern) + '</span>';
+        }
+        html += '</summary>';
+        html += '<div class="collapsible-body breakdown-body">';
+        if (bd.code_excerpt) {
+          html += '<div class="code-block"><pre><code class="language-' + bdLang + '">' + escapeHtml(bd.code_excerpt) + '</code></pre></div>';
+        }
+        if (bd.explanation) {
+          html += '<div class="breakdown-explanation">' + escapeHtml(bd.explanation) + '</div>';
+        }
+        html += '</div>';
+        html += '</details>';
+      }
+      html += '</div>';
+    }
+
     // Alternatives considered (collapsible)
     if (e.alternatives_considered) {
       html += '<div class="detail-section">';
@@ -547,6 +574,50 @@
       html += '</summary>';
       html += '<div class="collapsible-body">' + escapeHtml(e.alternatives_considered) + '</div>';
       html += '</details>';
+      html += '</div>';
+    }
+
+    // Issues
+    if (e.issues && e.issues.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Issues</div>';
+      html += '<ul class="issue-list">';
+      for (var ii = 0; ii < e.issues.length; ii++) {
+        var iss = e.issues[ii];
+        var sev = iss.severity || 'info';
+        html += '<li class="issue-item">';
+        html += '<div class="issue-header">';
+        html += '<span class="severity-badge severity-' + escapeHtml(sev) + '">' + escapeHtml(sev) + '</span>';
+        html += '</div>';
+        if (iss.description) {
+          html += '<div class="issue-description">' + escapeHtml(iss.description) + '</div>';
+        }
+        if (iss.suggestion) {
+          html += '<div class="issue-suggestion"><strong>Suggestion:</strong> ' + escapeHtml(iss.suggestion) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // Improvements
+    if (e.improvements && e.improvements.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Improvements</div>';
+      html += '<ul class="improvement-list">';
+      for (var mi = 0; mi < e.improvements.length; mi++) {
+        var imp = e.improvements[mi];
+        html += '<li class="improvement-item">';
+        if (imp.description) {
+          html += '<div class="improvement-description">' + escapeHtml(imp.description) + '</div>';
+        }
+        if (imp.rationale) {
+          html += '<div class="improvement-rationale">' + escapeHtml(imp.rationale) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
       html += '</div>';
     }
 
