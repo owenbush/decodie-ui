@@ -117,5 +117,6 @@ The `.decodie/` directory structure and JSON schemas are defined in the [decodie
 - [owenbush/decodie](https://github.com/owenbush/decodie) -- Main site and documentation.
 - [owenbush/decodie-skill](https://github.com/owenbush/decodie-skill) -- The skill that generates `.decodie/` data during coding sessions.
 - [owenbush/decodie-ddev](https://github.com/owenbush/decodie-ddev) -- DDEV add-on that serves this UI as a DDEV service.
+- [owenbush/decodie-github-action](https://github.com/owenbush/decodie-github-action) -- GitHub Action for automatic PR analysis. [View on Marketplace](https://github.com/marketplace/actions/decodie-analyze).
 - [owenbush/decodie-vscode](https://github.com/owenbush/decodie-vscode) -- VSCode extension with sidebar entry browser and right-click analysis. [Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=owenbush.decodie-vscode).
 - [owenbush/decodie-core](https://github.com/owenbush/decodie-core) -- Shared data layer used by this UI and the VSCode extension.
