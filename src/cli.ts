@@ -78,6 +78,7 @@ program
       { remote: 'commands/decodie/observe.md', local: path.join(commandsBase, 'observe.md') },
       { remote: 'commands/decodie/analyze.md', local: path.join(commandsBase, 'analyze.md') },
       { remote: 'commands/decodie/ask.md', local: path.join(commandsBase, 'ask.md') },
+      { remote: 'commands/decodie/explain.md', local: path.join(commandsBase, 'explain.md') },
     ];
 
     console.log(`Installing Decodie commands (${scope})...`);
@@ -100,6 +101,7 @@ program
     console.log('  /decodie:observe  — Document decisions as you code');
     console.log('  /decodie:analyze  — Analyze existing code');
     console.log('  /decodie:ask      — Ask questions about entries');
+    console.log('  /decodie:explain  — Explain a code selection');
     if (scope === 'project') {
       console.log('\nCommit .claude/commands/decodie/ to share with your team.');
     }
