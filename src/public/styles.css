@@ -13,18 +13,18 @@
   --border: #344455;
   --border-light: #3d4f62;
   --text: #e2eaf2;
-  --text-muted: #87abc5;
-  --text-light: #5e7d96;
-  --primary: #0786f7;
-  --primary-hover: #0670d4;
-  --primary-glow: rgba(7, 134, 247, 0.15);
+  --text-muted: #9dbdd6;
+  --text-light: #7a9bb4;
+  --primary: #3d9ff8;
+  --primary-hover: #0786f7;
+  --primary-glow: rgba(61, 159, 248, 0.15);
   --accent: #90e1e4;
   --accent-dim: rgba(144, 225, 228, 0.12);
   --danger: #f05252;
 
   /* Experience level badges */
   --level-foundational: #34d399;
-  --level-intermediate: #0786f7;
+  --level-intermediate: #3d9ff8;
   --level-advanced: #a78bfa;
   --level-ecosystem: #fbbf24;
 
