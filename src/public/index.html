@@ -425,6 +425,9 @@
       if (state.learnedEntries[e.id]) {
         html += '<span class="learned-badge">&#10003; Learned</span>';
       }
+      if (e.stale) {
+        html += '<span class="stale-badge" title="Source files have changed since this entry was verified">&#9888; Stale</span>';
+      }
       html += '<div class="entry-card-ref-dots">';
       if (worst) {
         html += '<span class="ref-dot ref-dot-' + worst + '" title="Reference: ' + worst + '"></span>';
@@ -508,6 +511,12 @@
     }
     if (e.pinned) {
       html += '<span class="badge" style="background:var(--primary)">pinned</span>';
+    }
+    if (e.stale) {
+      html += '<span class="stale-badge" title="Source files have changed since this entry was verified">&#9888; Stale</span>';
+    }
+    if (e.verified_sha) {
+      html += '<span class="verified-sha" title="Verified at commit ' + escapeHtml(e.verified_sha) + '">' + escapeHtml(e.verified_sha.slice(0, 7)) + '</span>';
     }
     html += '</div>';
     html += '</div>';
