@@ -59,6 +59,7 @@
       <label><input type="checkbox" value="pattern"> Pattern</label>
       <label><input type="checkbox" value="warning"> Warning</label>
       <label><input type="checkbox" value="convention"> Convention</label>
+      <label><input type="checkbox" value="overview"> Overview</label>
     </div>
 
     <h3>Topics</h3>
@@ -642,6 +643,41 @@
       html += '<ul class="concepts-list">';
       for (const c of e.key_concepts) {
         html += '<li>' + escapeHtml(c) + '</li>';
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // Overview-shape sections (populated only when decision_type === 'overview').
+    // Each gates on field presence so legacy entries are unaffected.
+    if (e.purpose) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Purpose</div>';
+      html += '<div class="detail-explanation">' + escapeHtml(e.purpose) + '</div>';
+      html += '</div>';
+    }
+    if (e.structure) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Structure</div>';
+      html += '<div class="detail-explanation">' + escapeHtml(e.structure) + '</div>';
+      html += '</div>';
+    }
+    if (e.entry_points && e.entry_points.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Entry Points</div>';
+      html += '<ul class="concepts-list">';
+      for (const p of e.entry_points) {
+        html += '<li>' + escapeHtml(p) + '</li>';
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+    if (e.dependencies && e.dependencies.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Dependencies</div>';
+      html += '<ul class="concepts-list">';
+      for (const d of e.dependencies) {
+        html += '<li>' + escapeHtml(d) + '</li>';
       }
       html += '</ul>';
       html += '</div>';
