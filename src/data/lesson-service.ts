@@ -109,8 +109,11 @@ export class LessonService {
       }
     }
 
+    const MIN_ENTRIES_PER_TOPIC = 2;
     const summaries: LessonSummary[] = [];
     for (const [topic, entries] of topicMap) {
+      if (entries.length < MIN_ENTRIES_PER_TOPIC) continue;
+
       const learnedCount = entries.filter((e) =>
         this.progressStore.isLearned(e.id)
       ).length;

@@ -3,3 +3,39 @@
  * Base styles are loaded from shared.css (@owenbush/decodie-ui-shared).
  * Add any CLI-specific customisations here.
  */
+
+/* ── Richer entry picker items in lesson modal ── */
+.entry-picker-item {
+  align-items: flex-start;
+  padding: 0.5rem 0.75rem;
+}
+
+.entry-picker-item input[type="checkbox"] {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.entry-picker-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.entry-picker-item-title {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.entry-picker-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.entry-picker-item-meta .badge,
+.entry-picker-item-meta .tag {
+  font-size: 0.6875rem;
+  padding: 0.05rem 0.35rem;
+}

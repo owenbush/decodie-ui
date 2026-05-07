@@ -1346,13 +1346,24 @@
     var lessons = state.lessons;
     var html = '<div class="entry-list-header"><h2>Lessons</h2><span class="entry-count">' + lessons.length + ' lessons</span></div>';
 
-    html += '<div class="lesson-grid">';
+    if (lessons.length > 0) {
+      html += '<div style="margin-bottom:1rem"><input type="text" id="lessonFilterInput" class="input" placeholder="Filter lessons…" style="max-width:24rem"></div>';
+    }
+
+    html += '<div class="lesson-grid" id="lessonGrid">';
+
+    // Create lesson card — first in grid
+    html += '<div class="lesson-card-create" id="createLessonCard">';
+    html += '<div class="lesson-card-create-icon">+</div>';
+    html += '<div class="lesson-card-create-label">Create Lesson</div>';
+    html += '</div>';
+
     for (var i = 0; i < lessons.length; i++) {
       var lesson = lessons[i];
       var pct = lesson.total_count > 0 ? Math.round((lesson.learned_count / lesson.total_count) * 100) : 0;
       var typeBadgeClass = lesson.type === 'custom' ? 'lesson-type-badge-custom' : 'lesson-type-badge-auto';
 
-      html += '<div class="lesson-card" data-lesson-id="' + escapeHtml(lesson.id) + '">';
+      html += '<div class="lesson-card" data-lesson-id="' + escapeHtml(lesson.id) + '" data-lesson-title="' + escapeHtml(lesson.title.toLowerCase()) + '">';
       html += '<div class="lesson-card-header">';
       html += '<span class="lesson-card-title">' + escapeHtml(lesson.title) + '</span>';
       html += '<span class="lesson-type-badge ' + typeBadgeClass + '">' + escapeHtml(lesson.type) + '</span>';
@@ -1366,15 +1377,21 @@
       html += '</div>';
     }
 
-    // Create lesson card
-    html += '<div class="lesson-card-create" id="createLessonCard">';
-    html += '<div class="lesson-card-create-icon">+</div>';
-    html += '<div class="lesson-card-create-label">Create Lesson</div>';
-    html += '</div>';
-
     html += '</div>'; // .lesson-grid
 
     mainEl.innerHTML = html;
+
+    // Filter handler
+    var filterInput = document.getElementById('lessonFilterInput');
+    if (filterInput) {
+      filterInput.addEventListener('input', function() {
+        var term = filterInput.value.toLowerCase().trim();
+        mainEl.querySelectorAll('.lesson-card').forEach(function(card) {
+          var title = card.getAttribute('data-lesson-title') || '';
+          card.style.display = (!term || title.indexOf(term) >= 0) ? '' : 'none';
+        });
+      });
+    }
 
     // Attach click handlers
     mainEl.querySelectorAll('.lesson-card').forEach(function(card) {
@@ -1720,9 +1737,25 @@
       for (var i = 0; i < filtered.length; i++) {
         var e = filtered[i];
         var checked = selectedEntries.some(function(s) { return s.id === e.id; }) ? ' checked' : '';
+        var levelClass = e.experience_level ? ('experience-' + e.experience_level) : '';
         html += '<label class="entry-picker-item">';
         html += '<input type="checkbox" value="' + escapeHtml(e.id) + '"' + checked + '>';
-        html += '<span>' + escapeHtml(e.title) + '</span>';
+        html += '<span class="entry-picker-item-content">';
+        html += '<span class="entry-picker-item-title">' + escapeHtml(e.title) + '</span>';
+        html += '<span class="entry-picker-item-meta">';
+        if (e.experience_level) {
+          html += '<span class="' + levelClass + '">' + escapeHtml(e.experience_level) + '</span>';
+        }
+        if (e.decision_type) {
+          html += '<span class="badge badge-type">' + escapeHtml(e.decision_type) + '</span>';
+        }
+        if (e.topics && e.topics.length > 0) {
+          for (var t = 0; t < e.topics.length; t++) {
+            html += '<span class="tag">' + escapeHtml(e.topics[t]) + '</span>';
+          }
+        }
+        html += '</span>';
+        html += '</span>';
         html += '</label>';
       }
       if (filtered.length === 0) {
