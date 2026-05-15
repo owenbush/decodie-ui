@@ -1346,13 +1346,24 @@
     var lessons = state.lessons;
     var html = '<div class="entry-list-header"><h2>Lessons</h2><span class="entry-count">' + lessons.length + ' lessons</span></div>';
 
-    html += '<div class="lesson-grid">';
+    if (lessons.length > 0) {
+      html += '<div style="margin-bottom:1rem"><input type="text" id="lessonFilterInput" class="input" placeholder="Filter lessons…" style="max-width:24rem"></div>';
+    }
+
+    html += '<div class="lesson-grid" id="lessonGrid">';
+
+    // Create lesson card — first in grid
+    html += '<div class="lesson-card-create" id="createLessonCard">';
+    html += '<div class="lesson-card-create-icon">+</div>';
+    html += '<div class="lesson-card-create-label">Create Lesson</div>';
+    html += '</div>';
+
     for (var i = 0; i < lessons.length; i++) {
       var lesson = lessons[i];
       var pct = lesson.total_count > 0 ? Math.round((lesson.learned_count / lesson.total_count) * 100) : 0;
       var typeBadgeClass = lesson.type === 'custom' ? 'lesson-type-badge-custom' : 'lesson-type-badge-auto';
 
-      html += '<div class="lesson-card" data-lesson-id="' + escapeHtml(lesson.id) + '">';
+      html += '<div class="lesson-card" data-lesson-id="' + escapeHtml(lesson.id) + '" data-lesson-title="' + escapeHtml(lesson.title.toLowerCase()) + '">';
       html += '<div class="lesson-card-header">';
       html += '<span class="lesson-card-title">' + escapeHtml(lesson.title) + '</span>';
       html += '<span class="lesson-type-badge ' + typeBadgeClass + '">' + escapeHtml(lesson.type) + '</span>';
@@ -1366,15 +1377,21 @@
       html += '</div>';
     }
 
-    // Create lesson card
-    html += '<div class="lesson-card-create" id="createLessonCard">';
-    html += '<div class="lesson-card-create-icon">+</div>';
-    html += '<div class="lesson-card-create-label">Create Lesson</div>';
-    html += '</div>';
-
     html += '</div>'; // .lesson-grid
 
     mainEl.innerHTML = html;
+
+    // Filter handler
+    var filterInput = document.getElementById('lessonFilterInput');
+    if (filterInput) {
+      filterInput.addEventListener('input', function() {
+        var term = filterInput.value.toLowerCase().trim();
+        mainEl.querySelectorAll('.lesson-card').forEach(function(card) {
+          var title = card.getAttribute('data-lesson-title') || '';
+          card.style.display = (!term || title.indexOf(term) >= 0) ? '' : 'none';
+        });
+      });
+    }
 
     // Attach click handlers
     mainEl.querySelectorAll('.lesson-card').forEach(function(card) {
@@ -1650,6 +1667,7 @@
   function openLessonModal(existingLesson) {
     var isEdit = !!existingLesson;
     var selectedEntries = []; // { id, title, order, note }
+    var editingNoteAt = null;
 
     if (isEdit && existingLesson.entries) {
       selectedEntries = existingLesson.entries.map(function(item, idx) {
@@ -1670,86 +1688,191 @@
 
     modal.innerHTML = '<h3>' + (isEdit ? 'Edit Lesson' : 'Create Lesson') + '</h3>'
       + '<div class="lesson-modal-field">'
-      + '<label for="lessonTitleInput">Title *</label>'
-      + '<input type="text" id="lessonTitleInput" placeholder="Lesson title" value="' + escapeHtml(isEdit ? existingLesson.title : '') + '">'
+      + '<label for="lessonTitleInput">Title</label>'
+      + '<input type="text" id="lessonTitleInput" placeholder="e.g. Onboarding to the auth subsystem" value="' + escapeHtml(isEdit ? existingLesson.title : '') + '">'
       + '</div>'
       + '<div class="lesson-modal-field">'
-      + '<label for="lessonDescInput">Description</label>'
-      + '<textarea id="lessonDescInput" placeholder="Optional description" rows="2">' + escapeHtml(isEdit ? (existingLesson.description || '') : '') + '</textarea>'
+      + '<label for="lessonDescInput">Description <span style="color:var(--text-muted);font-size:0.8125rem;">(optional)</span></label>'
+      + '<textarea id="lessonDescInput" placeholder="What will someone learn by following this lesson?" rows="2">' + escapeHtml(isEdit ? (existingLesson.description || '') : '') + '</textarea>'
       + '</div>'
       + '<div class="lesson-modal-field">'
-      + '<label>Entries</label>'
+      + '<label>Steps <span id="stepsCount" style="color:var(--text-muted);font-size:0.8125rem;"></span></label>'
+      + '<div class="entry-order-list" id="entryOrderList"></div>'
+      + '</div>'
+      + '<div class="lesson-modal-field">'
+      + '<label>Add entries</label>'
+      + '<div id="entryPickerFilters" class="entry-picker-filters"></div>'
+      + '<div id="entryPickerCount" style="margin:0.5rem 0;font-size:0.8125rem;color:var(--text-muted);"></div>'
       + '<div class="entry-picker" id="entryPickerContainer">'
-      + '<input type="text" class="entry-picker-search" id="entryPickerSearch" placeholder="Search entries...">'
       + '<div id="entryPickerList"></div>'
       + '</div>'
       + '</div>'
-      + '<div class="lesson-modal-field">'
-      + '<label>Selected entries (drag to reorder)</label>'
-      + '<div class="entry-order-list" id="entryOrderList"></div>'
-      + '</div>'
+      + '<div id="lessonModalError" class="error-banner" style="display:none;" role="alert"></div>'
       + '<div class="lesson-modal-actions">'
       + '<button class="btn-outline btn-sm" id="lessonModalCancel">Cancel</button>'
-      + '<button class="btn-primary btn-sm" id="lessonModalSave">' + (isEdit ? 'Save' : 'Create') + '</button>'
+      + '<button class="btn-primary btn-sm" id="lessonModalSave" disabled>' + (isEdit ? 'Save changes' : 'Create lesson') + '</button>'
       + '</div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
     var allPickerEntries = [];
+    var allTopics = [];
+    var filterState = { query: '', level: '', topic: '' };
+
+    function updateSaveState() {
+      var titleVal = document.getElementById('lessonTitleInput').value.trim();
+      var saveBtn = document.getElementById('lessonModalSave');
+      if (saveBtn) {
+        saveBtn.disabled = !titleVal || selectedEntries.length === 0;
+      }
+    }
 
     // Load entries for picker
     fetch('/api/entries?lifecycle=active')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         allPickerEntries = data.entries || [];
-        renderPickerEntries('');
+        // Collect unique topics
+        var topicSet = {};
+        allPickerEntries.forEach(function(e) {
+          (e.topics || []).forEach(function(t) { topicSet[t] = true; });
+        });
+        allTopics = Object.keys(topicSet).sort();
+        renderFilters();
+        renderPickerEntries();
       });
 
-    function renderPickerEntries(searchTerm) {
-      var container = document.getElementById('entryPickerList');
+    function renderFilters() {
+      var container = document.getElementById('entryPickerFilters');
       if (!container) return;
-      var filtered = allPickerEntries;
-      if (searchTerm) {
-        var term = searchTerm.toLowerCase();
-        filtered = allPickerEntries.filter(function(e) {
-          return (e.title || '').toLowerCase().indexOf(term) >= 0 || (e.id || '').toLowerCase().indexOf(term) >= 0;
+      var html = '<input type="text" class="entry-picker-filter-input" id="entryPickerSearch" placeholder="Search by title or topic…" value="' + escapeHtml(filterState.query) + '">';
+      html += '<select class="entry-picker-filter-select" id="entryPickerLevel">';
+      html += '<option value="">All levels</option>';
+      ['foundational', 'intermediate', 'advanced', 'ecosystem'].forEach(function(l) {
+        html += '<option value="' + l + '"' + (filterState.level === l ? ' selected' : '') + '>' + l + '</option>';
+      });
+      html += '</select>';
+      if (allTopics.length > 0) {
+        html += '<select class="entry-picker-filter-select" id="entryPickerTopic">';
+        html += '<option value="">All topics</option>';
+        allTopics.forEach(function(t) {
+          html += '<option value="' + escapeHtml(t) + '"' + (filterState.topic === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
         });
+        html += '</select>';
       }
-      var html = '';
-      for (var i = 0; i < filtered.length; i++) {
-        var e = filtered[i];
-        var checked = selectedEntries.some(function(s) { return s.id === e.id; }) ? ' checked' : '';
-        html += '<label class="entry-picker-item">';
-        html += '<input type="checkbox" value="' + escapeHtml(e.id) + '"' + checked + '>';
-        html += '<span>' + escapeHtml(e.title) + '</span>';
-        html += '</label>';
-      }
-      if (filtered.length === 0) {
-        html = '<div style="padding:0.5rem 0.75rem;color:var(--text-light);font-size:0.8125rem;">No entries found</div>';
+      var filtersActive = filterState.query || filterState.level || filterState.topic;
+      if (filtersActive) {
+        html += '<button class="btn-outline btn-sm" id="entryPickerClear" style="font-size:0.8125rem;">Clear</button>';
       }
       container.innerHTML = html;
 
-      // Attach checkbox handlers
-      container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-          var entryId = cb.value;
-          if (cb.checked) {
-            var entry = allPickerEntries.find(function(e) { return e.id === entryId; });
-            if (entry && !selectedEntries.some(function(s) { return s.id === entryId; })) {
-              selectedEntries.push({
-                id: entry.id,
-                title: entry.title || entry.id,
-                order: selectedEntries.length + 1,
-                note: ''
-              });
-            }
-          } else {
-            selectedEntries = selectedEntries.filter(function(s) { return s.id !== entryId; });
-            // Re-number
-            selectedEntries.forEach(function(s, idx) { s.order = idx + 1; });
+      document.getElementById('entryPickerSearch').addEventListener('input', debounce(function() {
+        filterState.query = document.getElementById('entryPickerSearch').value.trim();
+        renderPickerEntries();
+      }, 200));
+      document.getElementById('entryPickerLevel').addEventListener('change', function() {
+        filterState.level = this.value;
+        renderPickerEntries();
+      });
+      var topicSelect = document.getElementById('entryPickerTopic');
+      if (topicSelect) {
+        topicSelect.addEventListener('change', function() {
+          filterState.topic = this.value;
+          renderPickerEntries();
+        });
+      }
+      var clearBtn = document.getElementById('entryPickerClear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+          filterState = { query: '', level: '', topic: '' };
+          renderFilters();
+          renderPickerEntries();
+        });
+      }
+    }
+
+    function getFilteredEntries() {
+      var result = allPickerEntries;
+      if (filterState.level) {
+        result = result.filter(function(e) { return e.experience_level === filterState.level; });
+      }
+      if (filterState.topic) {
+        result = result.filter(function(e) { return (e.topics || []).indexOf(filterState.topic) >= 0; });
+      }
+      if (filterState.query) {
+        var q = filterState.query.toLowerCase();
+        result = result.filter(function(e) {
+          return (e.title || '').toLowerCase().indexOf(q) >= 0
+            || (e.topics || []).some(function(t) { return t.toLowerCase().indexOf(q) >= 0; });
+        });
+      }
+      return result;
+    }
+
+    function renderPickerEntries() {
+      var container = document.getElementById('entryPickerList');
+      if (!container) return;
+      var filtered = getFilteredEntries();
+
+      // Update count
+      var countEl = document.getElementById('entryPickerCount');
+      if (countEl) {
+        var filtersActive = filterState.query || filterState.level || filterState.topic;
+        countEl.textContent = filtered.length + (filtered.length === 1 ? ' entry' : ' entries') + (filtersActive ? ' matching filters' : '');
+      }
+
+      var html = '';
+      for (var i = 0; i < filtered.length; i++) {
+        var e = filtered[i];
+        var added = selectedEntries.some(function(s) { return s.id === e.id; });
+        var levelClass = e.experience_level ? ('experience-' + e.experience_level) : '';
+        html += '<div class="entry-picker-item' + (added ? ' entry-picker-item-added' : '') + '">';
+        html += '<div class="entry-picker-item-content">';
+        html += '<span class="entry-picker-item-title">' + escapeHtml(e.title) + '</span>';
+        html += '<span class="entry-picker-item-meta">';
+        if (e.experience_level) {
+          html += '<span class="' + levelClass + '">' + escapeHtml(e.experience_level) + '</span>';
+        }
+        if (e.decision_type) {
+          html += '<span class="badge badge-type">' + escapeHtml(e.decision_type) + '</span>';
+        }
+        if (e.topics && e.topics.length > 0) {
+          var topicLimit = Math.min(e.topics.length, 3);
+          for (var t = 0; t < topicLimit; t++) {
+            html += '<span class="tag">' + escapeHtml(e.topics[t]) + '</span>';
           }
-          renderOrderList();
+        }
+        html += '</span>';
+        html += '</div>';
+        if (added) {
+          html += '<button class="btn-sm entry-picker-add-btn" disabled>Added</button>';
+        } else {
+          html += '<button class="btn-primary btn-sm entry-picker-add-btn" data-entry-id="' + escapeHtml(e.id) + '">+ Add</button>';
+        }
+        html += '</div>';
+      }
+      if (filtered.length === 0) {
+        html = '<div style="padding:0.75rem;color:var(--text-light);font-size:0.8125rem;">No entries match the current filters.</div>';
+      }
+      container.innerHTML = html;
+
+      // Attach add-button handlers
+      container.querySelectorAll('.entry-picker-add-btn:not([disabled])').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var entryId = btn.getAttribute('data-entry-id');
+          var entry = allPickerEntries.find(function(e) { return e.id === entryId; });
+          if (entry && !selectedEntries.some(function(s) { return s.id === entryId; })) {
+            selectedEntries.push({
+              id: entry.id,
+              title: entry.title || entry.id,
+              order: selectedEntries.length + 1,
+              note: ''
+            });
+            renderOrderList();
+            renderPickerEntries();
+            updateSaveState();
+          }
         });
       });
     }
@@ -1757,39 +1880,69 @@
     function renderOrderList() {
       var container = document.getElementById('entryOrderList');
       if (!container) return;
+
+      var countEl = document.getElementById('stepsCount');
+      if (countEl) {
+        countEl.textContent = selectedEntries.length > 0 ? '(' + selectedEntries.length + ')' : '';
+      }
+
       if (selectedEntries.length === 0) {
-        container.innerHTML = '<div style="padding:0.5rem;color:var(--text-light);font-size:0.8125rem;">No entries selected</div>';
+        container.innerHTML = '<div style="padding:0.5rem;color:var(--text-light);font-size:0.8125rem;">No steps yet — pick entries from the list below to add them.</div>';
         return;
       }
       var html = '';
       for (var i = 0; i < selectedEntries.length; i++) {
         var s = selectedEntries[i];
         html += '<div class="entry-order-item" data-idx="' + i + '">';
-        html += '<span style="color:var(--text-light);font-size:0.75rem;min-width:1.25rem;text-align:center;">' + (i + 1) + '</span>';
-        html += '<span class="entry-order-item-title">' + escapeHtml(s.title) + '</span>';
-        html += '<input type="text" class="entry-order-item-note" placeholder="Note..." value="' + escapeHtml(s.note) + '" data-idx="' + i + '">';
-        if (i > 0) {
-          html += '<button class="entry-order-btn" data-action="up" data-idx="' + i + '">&uarr;</button>';
+        html += '<span class="entry-order-item-number">' + (i + 1) + '.</span>';
+        html += '<div class="entry-order-item-body">';
+        html += '<div class="entry-order-item-title">' + escapeHtml(s.title) + '</div>';
+        if (editingNoteAt === i) {
+          html += '<input type="text" class="entry-order-item-note-input" placeholder="Note for this step" value="' + escapeHtml(s.note) + '" data-idx="' + i + '" autofocus>';
+        } else if (s.note) {
+          html += '<button class="entry-order-note-display" data-action="edit-note" data-idx="' + i + '">' + escapeHtml(s.note) + '</button>';
+        } else {
+          html += '<button class="entry-order-note-add" data-action="edit-note" data-idx="' + i + '">+ Add note</button>';
         }
-        if (i < selectedEntries.length - 1) {
-          html += '<button class="entry-order-btn" data-action="down" data-idx="' + i + '">&darr;</button>';
-        }
+        html += '</div>';
+        html += '<div class="entry-order-item-actions">';
+        html += '<button class="entry-order-btn" data-action="up" data-idx="' + i + '"' + (i === 0 ? ' disabled' : '') + '>&uarr;</button>';
+        html += '<button class="entry-order-btn" data-action="down" data-idx="' + i + '"' + (i === selectedEntries.length - 1 ? ' disabled' : '') + '>&darr;</button>';
         html += '<button class="entry-order-btn entry-order-remove" data-action="remove" data-idx="' + i + '">&times;</button>';
+        html += '</div>';
         html += '</div>';
       }
       container.innerHTML = html;
 
-      // Note inputs
-      container.querySelectorAll('.entry-order-item-note').forEach(function(input) {
-        input.addEventListener('input', function() {
+      // Inline note editing
+      container.querySelectorAll('[data-action="edit-note"]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          editingNoteAt = parseInt(btn.getAttribute('data-idx'), 10);
+          renderOrderList();
+          var noteInput = container.querySelector('.entry-order-item-note-input');
+          if (noteInput) noteInput.focus();
+        });
+      });
+
+      container.querySelectorAll('.entry-order-item-note-input').forEach(function(input) {
+        function commitNote() {
           var idx = parseInt(input.getAttribute('data-idx'), 10);
           if (selectedEntries[idx]) {
             selectedEntries[idx].note = input.value;
           }
+          editingNoteAt = null;
+          renderOrderList();
+        }
+        input.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter' || ev.key === 'Escape') {
+            ev.preventDefault();
+            commitNote();
+          }
         });
+        input.addEventListener('blur', commitNote);
       });
 
-      // Order buttons
+      // Order/remove buttons
       container.querySelectorAll('.entry-order-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var idx = parseInt(btn.getAttribute('data-idx'), 10);
@@ -1803,25 +1956,23 @@
             selectedEntries[idx] = selectedEntries[idx + 1];
             selectedEntries[idx + 1] = tmp2;
           } else if (action === 'remove') {
-            var removedId = selectedEntries[idx].id;
             selectedEntries.splice(idx, 1);
-            // Uncheck in picker
-            var cb = document.querySelector('#entryPickerList input[value="' + removedId + '"]');
-            if (cb) cb.checked = false;
           }
           selectedEntries.forEach(function(s, i) { s.order = i + 1; });
+          editingNoteAt = null;
           renderOrderList();
+          renderPickerEntries();
+          updateSaveState();
         });
       });
     }
 
-    // Search handler
-    document.getElementById('entryPickerSearch').addEventListener('input', debounce(function() {
-      renderPickerEntries(document.getElementById('entryPickerSearch').value.trim());
-    }, 200));
+    // Title changes affect save state
+    document.getElementById('lessonTitleInput').addEventListener('input', updateSaveState);
 
     // Render initial order list
     renderOrderList();
+    updateSaveState();
 
     // Cancel
     document.getElementById('lessonModalCancel').addEventListener('click', function() {
@@ -1836,10 +1987,10 @@
     // Save
     document.getElementById('lessonModalSave').addEventListener('click', async function() {
       var title = document.getElementById('lessonTitleInput').value.trim();
-      if (!title) {
-        alert('Title is required');
-        return;
-      }
+      if (!title) return;
+      if (selectedEntries.length === 0) return;
+
+      var errorEl = document.getElementById('lessonModalError');
 
       var body = {
         title: title,
@@ -1852,7 +2003,7 @@
       try {
         var saveBtn = document.getElementById('lessonModalSave');
         saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
+        saveBtn.textContent = isEdit ? 'Saving…' : 'Creating…';
 
         var url, method;
         if (isEdit) {
@@ -1871,7 +2022,7 @@
 
         if (!resp.ok) {
           var errData = await resp.json().catch(function() { return {}; });
-          throw new Error(errData.error || 'Save failed');
+          throw new Error(errData.error || (isEdit ? 'Failed to update lesson' : 'Failed to create lesson'));
         }
 
         overlay.remove();
@@ -1883,11 +2034,14 @@
           await renderLessonList();
         }
       } catch (err) {
-        alert('Error: ' + err.message);
+        if (errorEl) {
+          errorEl.textContent = err.message;
+          errorEl.style.display = '';
+        }
         var saveBtn2 = document.getElementById('lessonModalSave');
         if (saveBtn2) {
           saveBtn2.disabled = false;
-          saveBtn2.textContent = isEdit ? 'Save' : 'Create';
+          saveBtn2.textContent = isEdit ? 'Save changes' : 'Create lesson';
         }
       }
     });

@@ -73,42 +73,32 @@ describe('Auto-generated lessons', () => {
       (l: { type: string }) => l.type === 'auto'
     );
 
-    // Active entries have these topics: authentication, security, error-handling,
-    // data-structures, internationalization, formatting,
-    // design-patterns, architecture, event-driven
+    // Only topics with 2+ active entries appear as auto-lessons:
+    // security (a1b2 + e5f6), architecture (c3d4 + e5f6)
     const autoIds = autoLessons.map((l: { id: string }) => l.id).sort();
     expect(autoIds).toEqual([
       'auto-architecture',
-      'auto-authentication',
-      'auto-data-structures',
-      'auto-design-patterns',
-      'auto-error-handling',
-      'auto-event-driven',
-      'auto-formatting',
-      'auto-internationalization',
       'auto-security',
     ]);
 
-    // Each auto lesson should have type 'auto'
     for (const lesson of autoLessons) {
       expect(lesson.type).toBe('auto');
-      expect(lesson.entry_count).toBeGreaterThanOrEqual(1);
+      expect(lesson.entry_count).toBeGreaterThanOrEqual(2);
     }
   });
 
   test('auto lessons sort entries by experience level', async () => {
-    // The "security" topic has only entry-a1b2 (foundational, active).
-    // The "error-handling" topic also has only entry-a1b2 (foundational, active).
-    // Let's use a topic that spans multiple levels to test sorting.
-    // Actually with the fixture data, each topic only has 1 active entry.
-    // But we can still verify the order field is correct.
+    // "security" topic has a1b2 (foundational) and e5f6 (advanced)
     const res = await request(app).get('/api/lessons/auto-security');
 
     expect(res.status).toBe(200);
-    expect(res.body.entries).toHaveLength(1);
+    expect(res.body.entries).toHaveLength(2);
     expect(res.body.entries[0].entry.id).toBe('entry-1711540000-a1b2');
     expect(res.body.entries[0].entry.experience_level).toBe('foundational');
     expect(res.body.entries[0].order).toBe(0);
+    expect(res.body.entries[1].entry.id).toBe('entry-1711540600-e5f6');
+    expect(res.body.entries[1].entry.experience_level).toBe('advanced');
+    expect(res.body.entries[1].order).toBe(1);
   });
 
   test('entries with multiple topics appear in multiple auto lessons', async () => {
@@ -162,9 +152,10 @@ describe('Auto-generated lessons', () => {
     expect(res.body.id).toBe('auto-security');
     expect(res.body.title).toBe('Security');
     expect(res.body.type).toBe('auto');
-    expect(res.body.entries).toHaveLength(1);
+    expect(res.body.entries).toHaveLength(2);
     expect(res.body.entries[0].entry.id).toBe('entry-1711540000-a1b2');
-    expect(res.body.total_count).toBe(1);
+    expect(res.body.entries[1].entry.id).toBe('entry-1711540600-e5f6');
+    expect(res.body.total_count).toBe(2);
     expect(res.body.learned_count).toBe(0);
   });
 
@@ -340,21 +331,19 @@ describe('Progress integration', () => {
     const res = await request(app).get('/api/lessons');
     expect(res.status).toBe(200);
 
-    // auto-authentication has entry-a1b2 which we marked as learned
+    // auto-security has 2 entries (a1b2 + e5f6); a1b2 is learned
+    const secLesson = res.body.find(
+      (l: { id: string }) => l.id === 'auto-security'
+    );
+    expect(secLesson).toBeDefined();
+    expect(secLesson.total_count).toBe(2);
+    expect(secLesson.learned_count).toBe(1);
+
+    // Single-entry topics are filtered out (min 2 entries per topic)
     const authLesson = res.body.find(
       (l: { id: string }) => l.id === 'auto-authentication'
     );
-    expect(authLesson).toBeDefined();
-    expect(authLesson.total_count).toBe(1);
-    expect(authLesson.learned_count).toBe(1);
-
-    // auto-data-structures has entry-c3d4 which is NOT learned
-    const dsLesson = res.body.find(
-      (l: { id: string }) => l.id === 'auto-data-structures'
-    );
-    expect(dsLesson).toBeDefined();
-    expect(dsLesson.total_count).toBe(1);
-    expect(dsLesson.learned_count).toBe(0);
+    expect(authLesson).toBeUndefined();
   });
 
   test('lesson detail entries include per-entry learned status', async () => {
