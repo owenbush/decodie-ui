@@ -47,7 +47,7 @@ describe('Q&A endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.enabled).toBe(false);
-    expect(res.body.auth_method).toBeNull();
+    expect(res.body.provider).toBeNull();
   });
 
   test('POST /api/qa returns 503 when no auth configured', async () => {
@@ -59,6 +59,7 @@ describe('Q&A endpoint', () => {
       });
 
     expect(res.status).toBe(503);
+    expect(res.body.error).toContain('API key');
     expect(res.body.error).toContain('.decodie/.env');
   });
 });

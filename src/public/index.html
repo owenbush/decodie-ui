@@ -1921,24 +1921,36 @@
           <p>Add one of the following to your <code>.decodie/.env</code> file:</p>
 
           <div class="help-box">
-            <strong>Option A: OAuth Token</strong> (uses your Claude Pro/Max subscription)
-            <ol>
-              <li>Run <code>claude setup-token</code> in your terminal</li>
-              <li>Add to <code>.decodie/.env</code>:</li>
-            </ol>
-            <pre><code>CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-your-token-here</code></pre>
-            <p class="help-note">Works everywhere including Docker/DDEV. Billed against your subscription.</p>
-          </div>
-
-          <div class="help-box" style="margin-top: 1rem;">
-            <strong>Option B: API Key</strong> (pay-per-token)
+            <strong>Anthropic (Claude)</strong>
             <ol>
               <li>Get a key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></li>
               <li>Add to <code>.decodie/.env</code>:</li>
             </ol>
-            <pre><code>CLAUDE_API_KEY=sk-ant-api03-your-key-here</code></pre>
-            <p class="help-note">Billed separately per token.</p>
+            <pre><code>ANTHROPIC_API_KEY=sk-ant-api03-your-key-here</code></pre>
           </div>
+
+          <div class="help-box" style="margin-top: 1rem;">
+            <strong>OpenAI</strong>
+            <ol>
+              <li>Get a key from <a href="https://platform.openai.com/" target="_blank" rel="noopener">platform.openai.com</a></li>
+              <li>Add to <code>.decodie/.env</code>:</li>
+            </ol>
+            <pre><code>OPENAI_API_KEY=sk-your-key-here</code></pre>
+          </div>
+
+          <div class="help-box" style="margin-top: 1rem;">
+            <strong>Google (Gemini)</strong>
+            <ol>
+              <li>Get a key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener">aistudio.google.com</a></li>
+              <li>Add to <code>.decodie/.env</code>:</li>
+            </ol>
+            <pre><code>GOOGLE_GENERATIVE_AI_API_KEY=your-key-here</code></pre>
+          </div>
+
+          <p style="margin-top: 1rem; color: #6b7280; font-size: 0.875rem;">
+            Also supports Mistral (<code>MISTRAL_API_KEY</code>), xAI (<code>XAI_API_KEY</code>), and DeepSeek (<code>DEEPSEEK_API_KEY</code>).
+            Optionally set <code>LLM_MODEL</code> to override the default model.
+          </p>
 
           <p style="margin-top: 1.5rem; color: #6b7280; font-size: 0.875rem;">
             After editing the file, restart the server for changes to take effect.

@@ -1,6 +1,6 @@
 {
   "name": "@owenbush/decodie-ui",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "description": "Presentation layer for Decodie",
   "license": "MIT",
   "repository": {
@@ -23,10 +23,14 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.76",
-    "@anthropic-ai/sdk": "^0.52.0",
-    "@owenbush/decodie-core": "^0.5.0",
+    "@ai-sdk/anthropic": "^3.0.77",
+    "@ai-sdk/google": "^3.0.73",
+    "@ai-sdk/mistral": "^3.0.37",
+    "@ai-sdk/openai": "^3.0.63",
+    "@ai-sdk/xai": "^3.0.90",
+    "@owenbush/decodie-core": "^1.0.0",
     "@owenbush/decodie-ui-shared": "^0.5.0",
+    "ai": "^6.0.182",
     "chokidar": "^3.6.0",
     "commander": "^12.0.0",
     "express": "^4.21.0",
