@@ -122,7 +122,6 @@ describe('API endpoints', () => {
 
     expect(res.status).toBe(200);
     // Values from our config fixture
-    expect(res.body.user_experience_level).toBe('intermediate');
     expect(res.body.archival_threshold_days).toBe(60);
     // Default values that were not in the fixture
     expect(res.body.auto_suggest_archival).toBe(true);

@@ -7,12 +7,6 @@
   "required": [],
   "additionalProperties": false,
   "properties": {
-    "user_experience_level": {
-      "type": "string",
-      "enum": ["foundational", "intermediate", "advanced", "ecosystem"],
-      "default": "intermediate",
-      "description": "The user's self-assessed experience level. Controls default filtering and explanation depth."
-    },
     "preferred_topics": {
       "type": "array",
       "items": {
