@@ -79,6 +79,9 @@ program
       { remote: 'commands/decodie/analyze.md', local: path.join(commandsBase, 'analyze.md') },
       { remote: 'commands/decodie/ask.md', local: path.join(commandsBase, 'ask.md') },
       { remote: 'commands/decodie/explain.md', local: path.join(commandsBase, 'explain.md') },
+      { remote: 'commands/decodie/overview.md', local: path.join(commandsBase, 'overview.md') },
+      { remote: 'commands/decodie/verify.md', local: path.join(commandsBase, 'verify.md') },
+      { remote: 'commands/decodie/flag-stale.md', local: path.join(commandsBase, 'flag-stale.md') },
     ];
 
     console.log(`Installing Decodie commands (${scope})...`);
@@ -98,10 +101,13 @@ program
     }
 
     console.log('\nDone! Decodie commands are now available in Claude Code:');
-    console.log('  /decodie:observe  — Document decisions as you code');
-    console.log('  /decodie:analyze  — Analyze existing code');
-    console.log('  /decodie:ask      — Ask questions about entries');
-    console.log('  /decodie:explain  — Explain a code selection');
+    console.log('  /decodie:observe    — Document decisions as you code');
+    console.log('  /decodie:analyze    — Analyze existing code');
+    console.log('  /decodie:ask        — Ask questions about entries');
+    console.log('  /decodie:explain    — Explain a code selection');
+    console.log('  /decodie:overview   — Generate a high-level project overview');
+    console.log('  /decodie:verify     — Verify entries are still accurate');
+    console.log('  /decodie:flag-stale — Flag outdated entries');
     if (scope === 'project') {
       console.log('\nCommit .claude/commands/decodie/ to share with your team.');
     }
