@@ -61,6 +61,11 @@ program
     process.cwd()
   )
   .action(async (opts) => {
+    console.warn('Warning: install-skill is deprecated. Use:');
+    console.warn('  npx skills add owenbush/decodie-skill --all');
+    console.warn('');
+    console.warn('Continuing with legacy installation...\n');
+
     const scope = opts.scope;
     let commandsBase: string;
 
