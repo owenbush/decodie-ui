@@ -583,7 +583,27 @@
         html += '<button class="qa-section-ask" data-section="alternatives" style="margin-left:auto;">Ask</button>';
       }
       html += '</summary>';
-      html += '<div class="collapsible-body">' + escapeHtml(e.alternatives_considered) + '</div>';
+      if (Array.isArray(e.alternatives_considered)) {
+        html += '<ul class="collapsible-body" style="margin:0;padding-left:1.2em;">';
+        for (var ai = 0; ai < e.alternatives_considered.length; ai++) {
+          var alt = e.alternatives_considered[ai];
+          if (typeof alt === 'string') {
+            html += '<li>' + escapeHtml(alt) + '</li>';
+          } else if (alt && typeof alt === 'object') {
+            var altTitle = alt.option || alt.alternative || alt.title || alt.name || '';
+            var altReason = alt.reason || alt.rationale || alt.description || alt.why || '';
+            html += '<li>';
+            if (altTitle) html += '<strong>' + escapeHtml(altTitle) + '</strong>';
+            if (altTitle && altReason) html += ' — ';
+            if (altReason) html += escapeHtml(altReason);
+            if (!altTitle && !altReason) html += escapeHtml(JSON.stringify(alt));
+            html += '</li>';
+          }
+        }
+        html += '</ul>';
+      } else {
+        html += '<div class="collapsible-body">' + escapeHtml(e.alternatives_considered) + '</div>';
+      }
       html += '</details>';
       html += '</div>';
     }
@@ -689,7 +709,8 @@
       html += '<div class="detail-section-title">Documentation</div>';
       html += '<div class="doc-links">';
       for (const d of e.external_docs) {
-        html += '<a class="doc-link" href="' + escapeHtml(d.url) + '" target="_blank" rel="noopener">&#128196; ' + escapeHtml(d.label) + '</a>';
+        var docLabel = d.label || d.title || d.name || d.url || '';
+        html += '<a class="doc-link" href="' + escapeHtml(d.url) + '" target="_blank" rel="noopener">&#128196; ' + escapeHtml(docLabel) + '</a>';
       }
       html += '</div>';
       html += '</div>';
