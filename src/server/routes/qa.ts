@@ -55,7 +55,7 @@ Code:
 ${entry.code_snippet || '(no code snippet)'}
 \`\`\`
 Explanation: ${entry.explanation || '(no explanation)'}
-Alternatives Considered: ${Array.isArray(entry.alternatives_considered) ? entry.alternatives_considered.map((a: any) => typeof a === 'string' ? a : (a.option || a.alternative || a.title || '') + (a.reason || a.rationale || a.description || '')).join('; ') : (entry.alternatives_considered || '(none)')}
+Alternatives Considered: ${Array.isArray(entry.alternatives_considered) ? entry.alternatives_considered.map((a: any) => { if (typeof a === 'string') return a; const t = a.option || a.alternative || a.approach || a.title || ''; const r = a.reason || a.rationale || a.trade_off || a.tradeoff || a.description || ''; return t && r ? t + ' — ' + r : t || r || JSON.stringify(a); }).join('; ') : (entry.alternatives_considered || '(none)')}
 Key Concepts: ${(entry.key_concepts || []).join(', ') || '(none)'}
 
 The developer has selected this text: "${selected_text || '(no specific selection)'}"

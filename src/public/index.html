@@ -590,13 +590,17 @@
           if (typeof alt === 'string') {
             html += '<li>' + escapeHtml(alt) + '</li>';
           } else if (alt && typeof alt === 'object') {
-            var altTitle = alt.option || alt.alternative || alt.title || alt.name || '';
-            var altReason = alt.reason || alt.rationale || alt.description || alt.why || '';
+            var altTitle = alt.option || alt.alternative || alt.approach || alt.title || alt.name || '';
+            var altReason = alt.reason || alt.rationale || alt.trade_off || alt.tradeoff || alt.description || alt.why || '';
+            if (!altTitle && !altReason) {
+              var keys = Object.keys(alt);
+              if (keys.length >= 2) { altTitle = String(alt[keys[0]]); altReason = String(alt[keys[1]]); }
+              else if (keys.length === 1) { altTitle = String(alt[keys[0]]); }
+            }
             html += '<li>';
             if (altTitle) html += '<strong>' + escapeHtml(altTitle) + '</strong>';
             if (altTitle && altReason) html += ' — ';
             if (altReason) html += escapeHtml(altReason);
-            if (!altTitle && !altReason) html += escapeHtml(JSON.stringify(alt));
             html += '</li>';
           }
         }
