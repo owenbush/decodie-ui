@@ -749,7 +749,9 @@
     html += '<button class="btn-learned btn-sm' + (isLearned ? ' is-learned' : '') + '" id="learnedBtn">';
     html += isLearned ? '&#10003; Learned' : 'Mark as Learned';
     html += '</button>';
-    if (e.lifecycle !== 'archived') {
+    if (e.lifecycle === 'archived') {
+      html += '<button class="btn-outline btn-sm" id="unarchiveBtn">Unarchive</button>';
+    } else {
       html += '<button class="btn-outline btn-sm" id="archiveBtn">Archive</button>';
     }
     if (e.pinned) {
@@ -852,12 +854,27 @@
           archiveBtn.disabled = true;
           archiveBtn.textContent = 'Archiving...';
           await patchEntry(entry.id, { lifecycle: 'archived' });
-          // Refresh detail
           await fetchDetail(entry.id);
         } catch (e) {
           alert('Error: ' + e.message);
           archiveBtn.disabled = false;
           archiveBtn.textContent = 'Archive';
+        }
+      });
+    }
+
+    const unarchiveBtn = $('#unarchiveBtn');
+    if (unarchiveBtn) {
+      unarchiveBtn.addEventListener('click', async () => {
+        try {
+          unarchiveBtn.disabled = true;
+          unarchiveBtn.textContent = 'Restoring...';
+          await patchEntry(entry.id, { lifecycle: 'active' });
+          await fetchDetail(entry.id);
+        } catch (e) {
+          alert('Error: ' + e.message);
+          unarchiveBtn.disabled = false;
+          unarchiveBtn.textContent = 'Unarchive';
         }
       });
     }
