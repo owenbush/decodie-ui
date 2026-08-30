@@ -114,6 +114,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="marked.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -1191,36 +1192,10 @@
     }
   });
 
-  // Basic markdown rendering
+  // Markdown rendering via marked (sanitised — raw HTML in source is escaped)
+  var markedInstance = new marked.Marked({ breaks: true });
   function renderMarkdown(text) {
-    // Escape HTML
-    let html = escapeHtml(text);
-    // Code blocks: ```...```
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (_, lang, code) {
-      return '<pre><code>' + code + '</code></pre>';
-    });
-    // Inline code: `...`
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // Bold: **...**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // Italic: *...*
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-    // Headers: ### ... (h3–h4 only to stay within content hierarchy)
-    html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
-    html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
-    // Unordered lists: consecutive lines starting with - or *
-    html = html.replace(/(^|\n)((?:(?:[-*])\s+.+(?:\n|$))+)/g, function (_, before, block) {
-      var items = block.trim().split('\n').map(function (line) {
-        return '<li>' + line.replace(/^[-*]\s+/, '') + '</li>';
-      }).join('');
-      return before + '<ul>' + items + '</ul>';
-    });
-    // Line breaks (but not inside block elements we just created)
-    html = html.replace(/\n/g, '<br>');
-    // Clean up <br> immediately after block-level tags
-    html = html.replace(/<\/(ul|pre|h[34])><br>/g, '</$1>');
-    html = html.replace(/<br><(ul|pre|h[34])>/g, '<$1>');
-    return html;
+    return markedInstance.parse(text);
   }
 
   function appendQAMessage(role, content, streaming) {

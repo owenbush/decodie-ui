@@ -34,6 +34,7 @@
     "chokidar": "^3.6.0",
     "commander": "^12.0.0",
     "express": "^4.21.0",
+    "marked": "^18.0.11",
     "open": "^10.0.0"
   },
   "devDependencies": {
