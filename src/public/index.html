@@ -1042,6 +1042,7 @@
     } catch (_) {
       state.qaEnabled = false;
     }
+    render();
   }
 
   function openQAPanel(selectedText) {
@@ -2148,7 +2149,7 @@
     fetch('/api/qa/status').then(r => r.json()).then(function (status) {
       const el = document.getElementById('settingsStatus');
       if (status.enabled) {
-        el.innerHTML = '<div class="help-box" style="border-left: 3px solid #22c55e; margin-bottom: 1.5rem;"><strong>Q&A is enabled</strong> using ' + status.auth_method + '.</div>';
+        el.innerHTML = '<div class="help-box" style="border-left: 3px solid #22c55e; margin-bottom: 1.5rem;"><strong>Q&A is enabled</strong> using ' + status.provider + '.</div>';
       } else {
         el.innerHTML = '<div class="help-box" style="border-left: 3px solid #f59e0b; margin-bottom: 1.5rem;"><strong>Q&A is not configured.</strong> Follow the setup instructions below.</div>';
       }
