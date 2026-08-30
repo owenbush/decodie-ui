@@ -543,7 +543,7 @@
         html += '<button class="qa-section-ask" data-section="explanation">Ask</button>';
       }
       html += '</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.explanation) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.explanation) + '</div>';
       html += '</div>';
     }
 
@@ -566,7 +566,7 @@
           html += '<div class="code-block"><pre><code class="language-' + bdLang + '">' + escapeHtml(bd.code_excerpt) + '</code></pre></div>';
         }
         if (bd.explanation) {
-          html += '<div class="breakdown-explanation">' + escapeHtml(bd.explanation) + '</div>';
+          html += '<div class="breakdown-explanation">' + renderMarkdown(bd.explanation) + '</div>';
         }
         html += '</div>';
         html += '</details>';
@@ -677,13 +677,13 @@
     if (e.purpose) {
       html += '<div class="detail-section">';
       html += '<div class="detail-section-title">Purpose</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.purpose) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.purpose) + '</div>';
       html += '</div>';
     }
     if (e.structure) {
       html += '<div class="detail-section">';
       html += '<div class="detail-section-title">Structure</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.structure) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.structure) + '</div>';
       html += '</div>';
     }
     if (e.entry_points && e.entry_points.length > 0) {
@@ -1204,8 +1204,21 @@
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // Italic: *...*
     html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-    // Line breaks
+    // Headers: ### ... (h3–h4 only to stay within content hierarchy)
+    html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+    // Unordered lists: consecutive lines starting with - or *
+    html = html.replace(/(^|\n)((?:(?:[-*])\s+.+(?:\n|$))+)/g, function (_, before, block) {
+      var items = block.trim().split('\n').map(function (line) {
+        return '<li>' + line.replace(/^[-*]\s+/, '') + '</li>';
+      }).join('');
+      return before + '<ul>' + items + '</ul>';
+    });
+    // Line breaks (but not inside block elements we just created)
     html = html.replace(/\n/g, '<br>');
+    // Clean up <br> immediately after block-level tags
+    html = html.replace(/<\/(ul|pre|h[34])><br>/g, '</$1>');
+    html = html.replace(/<br><(ul|pre|h[34])>/g, '<$1>');
     return html;
   }
 
