@@ -114,6 +114,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="marked.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -543,7 +544,7 @@
         html += '<button class="qa-section-ask" data-section="explanation">Ask</button>';
       }
       html += '</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.explanation) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.explanation) + '</div>';
       html += '</div>';
     }
 
@@ -566,7 +567,7 @@
           html += '<div class="code-block"><pre><code class="language-' + bdLang + '">' + escapeHtml(bd.code_excerpt) + '</code></pre></div>';
         }
         if (bd.explanation) {
-          html += '<div class="breakdown-explanation">' + escapeHtml(bd.explanation) + '</div>';
+          html += '<div class="breakdown-explanation">' + renderMarkdown(bd.explanation) + '</div>';
         }
         html += '</div>';
         html += '</details>';
@@ -677,13 +678,13 @@
     if (e.purpose) {
       html += '<div class="detail-section">';
       html += '<div class="detail-section-title">Purpose</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.purpose) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.purpose) + '</div>';
       html += '</div>';
     }
     if (e.structure) {
       html += '<div class="detail-section">';
       html += '<div class="detail-section-title">Structure</div>';
-      html += '<div class="detail-explanation">' + escapeHtml(e.structure) + '</div>';
+      html += '<div class="detail-explanation">' + renderMarkdown(e.structure) + '</div>';
       html += '</div>';
     }
     if (e.entry_points && e.entry_points.length > 0) {
@@ -1191,23 +1192,10 @@
     }
   });
 
-  // Basic markdown rendering
+  // Markdown rendering via marked (sanitised — raw HTML in source is escaped)
+  var markedInstance = new marked.Marked({ breaks: true });
   function renderMarkdown(text) {
-    // Escape HTML
-    let html = escapeHtml(text);
-    // Code blocks: ```...```
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (_, lang, code) {
-      return '<pre><code>' + code + '</code></pre>';
-    });
-    // Inline code: `...`
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // Bold: **...**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // Italic: *...*
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-    // Line breaks
-    html = html.replace(/\n/g, '<br>');
-    return html;
+    return markedInstance.parse(text);
   }
 
   function appendQAMessage(role, content, streaming) {
