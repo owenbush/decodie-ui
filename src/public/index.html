@@ -677,19 +677,31 @@
     // Each gates on field presence so legacy entries are unaffected.
     if (e.purpose) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Purpose</div>';
+      html += '<div class="detail-section-title">Purpose';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="purpose">Ask</button>';
+      }
+      html += '</div>';
       html += '<div class="detail-explanation">' + renderMarkdown(e.purpose) + '</div>';
       html += '</div>';
     }
     if (e.structure) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Structure</div>';
+      html += '<div class="detail-section-title">Structure';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="structure">Ask</button>';
+      }
+      html += '</div>';
       html += '<div class="detail-explanation">' + renderMarkdown(e.structure) + '</div>';
       html += '</div>';
     }
     if (e.entry_points && e.entry_points.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Entry Points</div>';
+      html += '<div class="detail-section-title">Entry Points';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="entry_points">Ask</button>';
+      }
+      html += '</div>';
       html += '<ul class="concepts-list">';
       for (const p of e.entry_points) {
         html += '<li>' + escapeHtml(p) + '</li>';
@@ -699,7 +711,11 @@
     }
     if (e.dependencies && e.dependencies.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Dependencies</div>';
+      html += '<div class="detail-section-title">Dependencies';
+      if (state.qaEnabled) {
+        html += '<button class="qa-section-ask" data-section="dependencies">Ask</button>';
+      }
+      html += '</div>';
       html += '<ul class="concepts-list">';
       for (const d of e.dependencies) {
         html += '<li>' + escapeHtml(d) + '</li>';
@@ -900,6 +916,10 @@
           else if (section === 'explanation') text = entry.explanation || '';
           else if (section === 'alternatives') text = entry.alternatives_considered || '';
           else if (section === 'concepts') text = (entry.key_concepts || []).join(', ');
+          else if (section === 'purpose') text = entry.purpose || '';
+          else if (section === 'structure') text = entry.structure || '';
+          else if (section === 'entry_points') text = (entry.entry_points || []).join(', ');
+          else if (section === 'dependencies') text = (entry.dependencies || []).join(', ');
           if (text) openQAPanel(text);
         });
       });
